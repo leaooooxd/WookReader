@@ -78,7 +78,7 @@ void Menu_OpenBook(char *path, int scroll_speed, float zoom_amount)
 
                 if (touch_prev_count == 0)
                 {
-                    // Finger just touched down â€” record start position
+                    // Finger just touched down — record start position
                     touch_start_x  = cx;
                     touch_start_y  = cy;
                     touch_dragging = false;
@@ -142,7 +142,7 @@ void Menu_OpenBook(char *path, int scroll_speed, float zoom_amount)
 
                 bool nav_land = reader->navLandscape();
 
-                // Horizontal swipe â†’ page nav when buttons are left/right
+                // Horizontal swipe → page nav when buttons are left/right
                 if (touch_dragging && adx > SWIPE_THRESH && adx > ady * 1.5f && !nav_land)
                 {
                     if (dx_total < 0) reader->next_page(1);
@@ -150,7 +150,7 @@ void Menu_OpenBook(char *path, int scroll_speed, float zoom_amount)
                     reader->reset_nav_buttons();
                     did_swipe = true;
                 }
-                // Vertical swipe â†’ page nav when buttons are top/bottom
+                // Vertical swipe → page nav when buttons are top/bottom
                 else if (touch_dragging && ady > SWIPE_THRESH && ady > adx * 1.5f && nav_land)
                 {
                     if (dy_total < 0) reader->previous_page(1);
@@ -161,7 +161,7 @@ void Menu_OpenBook(char *path, int scroll_speed, float zoom_amount)
 
                 if (!did_swipe && !touch_dragging)
                 {
-                    // Finger lifted without drag â†’ tap: zone-based navigation
+                    // Finger lifted without drag → tap: zone-based navigation
                     float tx = touch_start_x, ty = touch_start_y;
 
                     if (!nav_land)
@@ -311,7 +311,7 @@ void Menu_OpenBook(char *path, int scroll_speed, float zoom_amount)
             reader->next_page(1);
         }
 
-        // Left analog stick: full 360Â° scrolling (analog, proportional speed)
+        // Left analog stick: full 360° scrolling (analog, proportional speed)
         if (!helpMenu && !notesMenu)
         {
             HidAnalogStickState stick_l = padGetStickPos(&pad, 0);
@@ -332,7 +332,7 @@ void Menu_OpenBook(char *path, int scroll_speed, float zoom_amount)
                     ny = (float)(stick_l.y + deadzone) / (32767 - deadzone);
 
                 // Scale by scroll_speed * 2 for snappier analog response;
-                // both axes evaluated independently â†’ full diagonal support
+                // both axes evaluated independently → full diagonal support
                 float speed = scroll_speed * 2.0f;
                 float sx = nx * speed;
                 float sy = ny * speed;
