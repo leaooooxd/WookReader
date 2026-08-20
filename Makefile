@@ -25,12 +25,12 @@ INCLUDES    :=  include include/menus/book include/menus/book-chooser include/he
 ROMFS	    :=	romfs
 
 VERSION_MAJOR := 0
-VERSION_MINOR := 6
+VERSION_MINOR := 0
 VERSION_MICRO := 7
 
 APP_TITLE   := WookReader
 APP_AUTHOR  := exorevan
-APP_VERSION := ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_MICRO}-sigma
+APP_VERSION := ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_MICRO}-local
 ICON := icon.jpg
 
 #---------------------------------------------------------------------------------
