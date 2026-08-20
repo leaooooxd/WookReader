@@ -1734,7 +1734,11 @@ void Menu_StartChoosing() {
                    textColor, "Status Bar: ");
       SDL_DrawText(RENDERER, ROBOTO_25, optTextX + 400, optTextY + 38 * 5,
                    textColor, configStatusBar ? "On" : "Off");
-    }
+    SDL_DrawText(RENDERER, ROBOTO_25, optTextX, optTextY + 38 * 6,
+             textColor, "Reading Direction: ");
+
+SDL_DrawText(RENDERER, ROBOTO_25, optTextX + 400, optTextY + 38 * 6,
+             textColor, configMangaMode ? "Oriental" : "Western");}
 
     // ── Notes overlay ─────────────────────────────────────────────────────────
     if (drawNotesChooser) {
