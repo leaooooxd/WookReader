@@ -4,6 +4,7 @@
 extern bool configDarkMode;
 extern bool configScreenButtons;
 extern bool configStatusBar;
+extern bool configMangaMode;
 
 extern const char* configFile;
 
