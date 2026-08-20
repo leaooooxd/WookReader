@@ -212,8 +212,8 @@ static int load_config(unsigned int* chosenFolderColor,
   if (statbar) configStatusBar = config_setting_get_bool(statbar);
 
   config_setting_t* mangaMode =
-    config_setting_get_member(config_root_setting(optionConfig), "MangaMode");
-if (mangaMode) configMangaMode = config_setting_get_bool(mangaMode);
+      config_setting_get_member(config_root_setting(optionConfig), "MangaMode");
+  if (mangaMode) configMangaMode = config_setting_get_bool(mangaMode);
 
   return 0;
 }
@@ -231,15 +231,6 @@ static void save_config(unsigned int chosenFolderColor,
       config_root_setting(optionConfig), "ZoomAmount");
   config_setting_t* dark =
       config_setting_get_member(config_root_setting(optionConfig), "DarkMode");
-config_setting_t* mangaMode =
-    config_setting_get_member(config_root_setting(optionConfig), "MangaMode");
-
-if (!mangaMode) {
-    mangaMode = config_setting_add(
-        config_root_setting(optionConfig), "MangaMode", CONFIG_TYPE_BOOL);
-}
-
-config_setting_set_bool(mangaMode, configMangaMode);
   if (!folder || !book || !scroll || !zoom || !dark) {
     folder = config_setting_add(config_root_setting(optionConfig),
                                 "FolderColor", CONFIG_TYPE_INT);
@@ -275,6 +266,14 @@ config_setting_set_bool(mangaMode, configMangaMode);
                                  CONFIG_TYPE_BOOL);
   if (statbar)
     config_setting_set_bool(statbar, configStatusBar);
+
+  config_setting_t* mangaMode =
+      config_setting_get_member(config_root_setting(optionConfig), "MangaMode");
+  if (!mangaMode)
+    mangaMode = config_setting_add(config_root_setting(optionConfig), "MangaMode",
+                                   CONFIG_TYPE_BOOL);
+  if (mangaMode)
+    config_setting_set_bool(mangaMode, configMangaMode);
 
   config_write_file(optionConfig, optionFile);
 }
@@ -867,7 +866,7 @@ void Menu_StartChoosing() {
 
   bool drawOption  = false;
   int  option_index   = 0;
-  int  amountOfOptions = 6;
+  int  amountOfOptions = 7;
 
   string path = "/switch/WookReader";
 
@@ -1122,10 +1121,10 @@ void Menu_StartChoosing() {
         case 5:
           configStatusBar = !configStatusBar;
           break;
-        default: break;
         case 6:
-    configMangaMode = !configMangaMode;
-    break;
+          configMangaMode = !configMangaMode;
+          break;
+        default: break;
       }
     }
 
@@ -1242,6 +1241,9 @@ void Menu_StartChoosing() {
           case 5:
             configStatusBar = !configStatusBar;
             break;
+          case 6:
+            configMangaMode = !configMangaMode;
+            break;
           default: break;
         }
       } else if (!isWarningOnScreen && chosen_index >= numFolders) {
@@ -1281,6 +1283,9 @@ void Menu_StartChoosing() {
             break;
           case 5:
             configStatusBar = !configStatusBar;
+            break;
+          case 6:
+            configMangaMode = !configMangaMode;
             break;
           default: break;
         }
@@ -1737,11 +1742,12 @@ void Menu_StartChoosing() {
                    textColor, "Status Bar: ");
       SDL_DrawText(RENDERER, ROBOTO_25, optTextX + 400, optTextY + 38 * 5,
                    textColor, configStatusBar ? "On" : "Off");
-    SDL_DrawText(RENDERER, ROBOTO_25, optTextX, optTextY + 38 * 6,
-             textColor, "Reading Direction: ");
 
-SDL_DrawText(RENDERER, ROBOTO_25, optTextX + 400, optTextY + 38 * 6,
-             textColor, configMangaMode ? "Oriental" : "Western");}
+      SDL_DrawText(RENDERER, ROBOTO_25, optTextX, optTextY + 38 * 6,
+                   textColor, "Reading Direction: ");
+      SDL_DrawText(RENDERER, ROBOTO_25, optTextX + 400, optTextY + 38 * 6,
+                   textColor, configMangaMode ? "Oriental" : "Western");
+    }
 
     // ── Notes overlay ─────────────────────────────────────────────────────────
     if (drawNotesChooser) {
