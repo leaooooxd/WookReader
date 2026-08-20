@@ -211,6 +211,10 @@ static int load_config(unsigned int* chosenFolderColor,
       config_setting_get_member(config_root_setting(optionConfig), "StatusBar");
   if (statbar) configStatusBar = config_setting_get_bool(statbar);
 
+  config_setting_t* mangaMode =
+    config_setting_get_member(config_root_setting(optionConfig), "MangaMode");
+if (mangaMode) configMangaMode = config_setting_get_bool(mangaMode);
+
   return 0;
 }
 
