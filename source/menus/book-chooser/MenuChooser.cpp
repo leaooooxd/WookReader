@@ -1123,6 +1123,9 @@ void Menu_StartChoosing() {
           configStatusBar = !configStatusBar;
           break;
         default: break;
+        case 6:
+    configMangaMode = !configMangaMode;
+    break;
       }
     }
 
