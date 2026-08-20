@@ -231,7 +231,15 @@ static void save_config(unsigned int chosenFolderColor,
       config_root_setting(optionConfig), "ZoomAmount");
   config_setting_t* dark =
       config_setting_get_member(config_root_setting(optionConfig), "DarkMode");
+config_setting_t* mangaMode =
+    config_setting_get_member(config_root_setting(optionConfig), "MangaMode");
 
+if (!mangaMode) {
+    mangaMode = config_setting_add(
+        config_root_setting(optionConfig), "MangaMode", CONFIG_TYPE_BOOL);
+}
+
+config_setting_set_bool(mangaMode, configMangaMode);
   if (!folder || !book || !scroll || !zoom || !dark) {
     folder = config_setting_add(config_root_setting(optionConfig),
                                 "FolderColor", CONFIG_TYPE_INT);
