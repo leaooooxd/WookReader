@@ -46,6 +46,9 @@ void show_chapter_notice(const std::string& text);
 
     BookPageLayout currentPageLayout() { return _currentPageLayout; }
     bool navLandscape()                { return _nav_landscape; }
+int totalPages() const {
+    return _total_pages;
+}
 int takeChapterChangeRequest() {
   int request = _chapter_change_request;
   _chapter_change_request = 0;
