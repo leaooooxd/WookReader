@@ -1870,14 +1870,18 @@ if (dashboard_visible) {
   string last_text =
       "Último capítulo: " + dashboard_last_chapter;
 
-  string progress_text =
-      "Progresso: " +
+ string progress_text = "Progresso:";
+
+if (dashboard_progress_visible) {
+  progress_text +=
+      " " +
       to_string(dashboard_completed) +
       " de " +
       to_string(dashboard_total) +
       " capítulos — " +
       to_string(percentage) +
       "%";
+}
 
   int text_width = 0;
 
@@ -1936,11 +1940,8 @@ if (dashboard_visible) {
         SDL_FreeSurface(surface);
       };
 
- if (!dashboard_last_chapter.empty())
-  draw_dashboard_text(last_text, 16, 9);
-
-if (dashboard_progress_visible)
-  draw_dashboard_text(progress_text, 16, 44);
+draw_dashboard_text(last_text, 16, 9);
+draw_dashboard_text(progress_text, 16, 44);
 }
     // Clip content area to avoid overflowing into the bottom bar
    SDL_Rect clip = {
