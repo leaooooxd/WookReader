@@ -1669,32 +1669,41 @@ folder_cards_view =
 
   folder_cover_textures.resize(numFolders, nullptr);
 
- for (int i = 0; i < numFolders; i++) {
+for (int i = 0; i < numFolders; i++) {
     if (dir == "/switch/WookReader") {
-       if (!g_recent.empty()) {
-    folder_cover_textures[i] =
-        load_last_read_page(
-            g_recent.front()
-        );
+        if (
+            sorted_entries[i].string() ==
+            RECENT_SENTINEL
+        ) {
+            if (!g_recent.empty()) {
+                folder_cover_textures[i] =
+                    load_last_read_page(
+                        g_recent.front()
+                    );
 
-    if (!folder_cover_textures[i]) {
-        fs::path last_book(g_recent.front());
+                if (!folder_cover_textures[i]) {
+                    fs::path last_book(
+                        g_recent.front()
+                    );
 
-        folder_cover_textures[i] =
-            load_series_cover(
-                last_book.parent_path()
-            );
-    }
-}
+                    folder_cover_textures[i] =
+                        load_series_cover(
+                            last_book.parent_path()
+                        );
+                }
+            }
         } else if (
-            sorted_entries[i].filename().string() == "books"
+            sorted_entries[i].filename().string() ==
+            "books"
         ) {
             folder_cover_textures[i] =
                 load_books_mosaic();
         }
     } else {
         folder_cover_textures[i] =
-            load_series_cover(sorted_entries[i]);
+            load_series_cover(
+                sorted_entries[i]
+            );
     }
 }
 }
