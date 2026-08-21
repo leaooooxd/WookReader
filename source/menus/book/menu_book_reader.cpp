@@ -523,8 +523,8 @@ if (chapter_request != 0)
         Menu_RecordRecentBook(current_book_path);
       reader->show_chapter_notice(
     chapter_request > 0
-        ? "Proximo capitulo"
-        : "Capitulo anterior");
+        ? "Próximo capítulo"
+        : "Capítulo anterior");
 
         Log_Write("NEETREADER CHAPTER CHANGE path=" +
                   current_book_path);
