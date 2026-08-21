@@ -101,6 +101,34 @@ static void save_recent() {
 }
 
 static void update_recent(const string& fpath) {
+  if (config) {
+  fs::path chapter_path(fpath);
+
+  string series_key =
+      "DASH_" +
+      chooser_sanitize(chapter_path.parent_path().string()) +
+      "_LAST";
+
+  config_setting_t* last_chapter =
+      config_setting_get_member(config_root_setting(config),
+                                series_key.c_str());
+
+  if (!last_chapter) {
+    last_chapter =
+        config_setting_add(config_root_setting(config),
+                           series_key.c_str(),
+                           CONFIG_TYPE_STRING);
+  }
+
+  if (last_chapter) {
+    string filename = chapter_path.filename().string();
+
+    config_setting_set_string(last_chapter,
+                              filename.c_str());
+
+    config_write_file(config, configFile);
+  }
+}
     if (!g_recent.empty() && g_recent[0] == fpath) return;  // already at top
     g_recent.erase(remove(g_recent.begin(), g_recent.end(), fpath), g_recent.end());
     g_recent.insert(g_recent.begin(), fpath);
@@ -1056,6 +1084,11 @@ void Menu_StartChoosing() {
   vector<SDL_Texture*> cover_textures;
   vector<pair<int,int>> entry_progress;  // parallel to cover_textures: (last_page, total_pages)
   vector<bool> entry_completed;
+  bool dashboard_visible = false;
+int dashboard_height = 0;
+int dashboard_completed = 0;
+int dashboard_total = 0;
+string dashboard_last_chapter;
   int scroll_y = 0;
   int cover_load_index = 0;  // next cover index to submit to background loader
 
@@ -1090,7 +1123,7 @@ void Menu_StartChoosing() {
       top = numFolders * FOLDER_H + row * cell_h;
       bot = top + cell_h;
     }
-    int usable = windowY - BOTTOM_H;
+    int usable = windowY - BOTTOM_H - dashboard_height;
     if (top < scroll_y)          scroll_y = top;
     if (bot > scroll_y + usable) scroll_y = bot - usable;
     if (scroll_y < 0) scroll_y = 0;
@@ -1134,6 +1167,86 @@ config_setting_t* completed =
 if (completed)
   entry_completed[i] = config_setting_get_bool(completed);
     }
+    dashboard_visible = false;
+dashboard_height = 0;
+dashboard_completed = 0;
+dashboard_total = numBooks;
+dashboard_last_chapter.clear();
+
+if (!inRecentFolder &&
+    path != "/switch/WookReader" &&
+    numBooks > 0) {
+  int consecutive = 0;
+  bool reached_five = false;
+
+  for (int i = 0; i < numBooks; i++) {
+    if (entry_completed[i]) {
+      dashboard_completed++;
+      consecutive++;
+
+      if (consecutive >= 5)
+        reached_five = true;
+    } else {
+      consecutive = 0;
+    }
+  }
+
+  string series_key =
+      "DASH_" + chooser_sanitize(path);
+
+  string active_key = series_key + "_ACTIVE";
+
+  config_setting_t* active =
+      config_setting_get_member(config_root_setting(config),
+                                active_key.c_str());
+
+  bool already_active =
+      active && config_setting_get_bool(active);
+
+  if (reached_five && !already_active) {
+    if (!active) {
+      active = config_setting_add(config_root_setting(config),
+                                  active_key.c_str(),
+                                  CONFIG_TYPE_BOOL);
+    }
+
+    if (active) {
+      config_setting_set_bool(active, true);
+      config_write_file(config, configFile);
+      already_active = true;
+    }
+  }
+
+  if (already_active) {
+    dashboard_visible = true;
+    dashboard_height = 84;
+
+    string last_key = series_key + "_LAST";
+
+    config_setting_t* last =
+        config_setting_get_member(config_root_setting(config),
+                                  last_key.c_str());
+
+    if (last) {
+      const char* filename = config_setting_get_string(last);
+
+      if (filename)
+        dashboard_last_chapter = filename;
+    }
+
+    if (dashboard_last_chapter.empty()) {
+      for (const auto& recent : g_recent) {
+        fs::path recent_path(recent);
+
+        if (recent_path.parent_path().string() == path) {
+          dashboard_last_chapter =
+              recent_path.filename().string();
+          break;
+        }
+      }
+    }
+  }
+}
   };
 
   // Pick the largest label font that suits the current cell width.
@@ -1575,7 +1688,8 @@ if (completed)
               int numBooks = amountOfFiles - numFolders;
               int numRows  = (numBooks + cols - 1) / cols;
               int total_h  = numFolders * FOLDER_H + numRows * cell_h;
-              int max_sy   = max(0, total_h - (windowY - BOTTOM_H));
+             int max_sy =
+    max(0, total_h - (windowY - BOTTOM_H - dashboard_height));
               if (scroll_y < 0)      scroll_y = 0;
               if (scroll_y > max_sy) scroll_y = max_sy;
             }
@@ -1586,9 +1700,11 @@ if (completed)
         else if (ts.count == 0 && touch_prev_count == 1 && !touch_dragging)
         {
           // Tap: ignore taps in the bottom bar
-          if (touch_start_y < (float)(windowY - BOTTOM_H))
+          if (touch_start_y >= dashboard_height &&
+    touch_start_y < (float)(windowY - BOTTOM_H))
           {
-            float content_ty = touch_start_y + scroll_y;
+            float content_ty =
+    touch_start_y - dashboard_height + scroll_y;
             int   tapped     = -1;
 
             int folder_idx = (int)(content_ty / FOLDER_H);
@@ -1730,14 +1846,109 @@ if (completed)
       SDL_DrawText(RENDERER, ROBOTO_25, 10, windowY - 40, textColor,
                    display_path.c_str());
     }
+if (dashboard_visible) {
+  SDL_SetRenderDrawBlendMode(RENDERER, SDL_BLENDMODE_NONE);
+  SDL_SetRenderDrawColor(RENDERER, 0, 0, 0, 255);
 
+  SDL_Rect dashboard_rect = {
+      0,
+      0,
+      windowX,
+      dashboard_height
+  };
+
+  SDL_RenderFillRect(RENDERER, &dashboard_rect);
+
+  int percentage =
+      dashboard_total > 0
+          ? (dashboard_completed * 100) / dashboard_total
+          : 0;
+
+  string last_text =
+      "Último capítulo: " + dashboard_last_chapter;
+
+  string progress_text =
+      "Progresso: " +
+      to_string(dashboard_completed) +
+      " de " +
+      to_string(dashboard_total) +
+      " capítulos — " +
+      to_string(percentage) +
+      "%";
+
+  int text_width = 0;
+
+  TTF_SizeUTF8(ROBOTO_25,
+               last_text.c_str(),
+               &text_width,
+               nullptr);
+
+  while (text_width > windowX - 32 &&
+         !last_text.empty()) {
+    last_text.pop_back();
+
+    string shortened = last_text + "...";
+
+    TTF_SizeUTF8(ROBOTO_25,
+                 shortened.c_str(),
+                 &text_width,
+                 nullptr);
+
+    if (text_width <= windowX - 32) {
+      last_text = shortened;
+      break;
+    }
+  }
+
+  auto draw_dashboard_text =
+      [&](const string& text, int x, int y) {
+        SDL_Surface* surface =
+            TTF_RenderUTF8_Blended(ROBOTO_25,
+                                   text.c_str(),
+                                   WHITE);
+
+        if (!surface)
+          return;
+
+        SDL_Texture* texture =
+            SDL_CreateTextureFromSurface(RENDERER,
+                                         surface);
+
+        if (texture) {
+          SDL_Rect destination = {
+              x,
+              y,
+              surface->w,
+              surface->h
+          };
+
+          SDL_RenderCopy(RENDERER,
+                         texture,
+                         nullptr,
+                         &destination);
+
+          SDL_DestroyTexture(texture);
+        }
+
+        SDL_FreeSurface(surface);
+      };
+
+  draw_dashboard_text(last_text, 16, 9);
+  draw_dashboard_text(progress_text, 16, 44);
+}
     // Clip content area to avoid overflowing into the bottom bar
-    SDL_Rect clip = {0, 0, windowX, windowY - BOTTOM_H};
+   SDL_Rect clip = {
+    0,
+    dashboard_height,
+    windowX,
+    windowY - BOTTOM_H - dashboard_height
+};
     SDL_RenderSetClipRect(RENDERER, &clip);
 
     // ── Folder list (top of content) ──────────────────────────────────────────
     for (int i = 0; i < numFolders; i++) {
-      int row_y = i * FOLDER_H - scroll_y;
+      int row_y =
+    dashboard_height + i * FOLDER_H - scroll_y;
       if (row_y + FOLDER_H < 0 || row_y > windowY - BOTTOM_H) continue;
 
       if (chosen_index == i)
@@ -1761,8 +1972,8 @@ if (completed)
 
     // ── Book / comic grid ─────────────────────────────────────────────────────
     int numBooks   = amountOfFiles - numFolders;
-    int books_top  = numFolders * FOLDER_H;
-
+    int books_top =
+    dashboard_height + numFolders * FOLDER_H;
     TTF_Font* lf  = pick_label_font();
     int lf_h      = TTF_FontHeight(lf);
     int strip_h   = lf_h + 8;  // 4px padding above and below text
