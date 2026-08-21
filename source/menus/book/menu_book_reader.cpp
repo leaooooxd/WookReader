@@ -504,6 +504,8 @@ if (chapter_request != 0)
                       adjacent_book);
             break;
         }
+      if (chapter_request > 0)
+    reader->goto_page(1);
 
         for (int attempt = 0;
              attempt < 3 &&
