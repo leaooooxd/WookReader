@@ -466,6 +466,14 @@ void BookReader::draw(bool drawHelp, bool drawNotes) {
         if (_total_pages > 0)
           save_total_pages(book_name.c_str(), _total_pages);
       }
+      if (
+    _open_on_last_page &&
+    _total_pages > 0
+) {
+    _open_on_last_page = false;
+
+    goto_page(_total_pages);
+}
     }
   }
 
