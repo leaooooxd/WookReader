@@ -595,6 +595,95 @@ static SDL_Texture* load_series_cover(const fs::path& folder_path) {
 
     return texture;
 }
+static SDL_Texture* load_books_mosaic() {
+    const int mosaic_width = 400;
+    const int mosaic_height = 600;
+
+    SDL_Texture* mosaic = SDL_CreateTexture(
+        RENDERER,
+        SDL_PIXELFORMAT_RGBA8888,
+        SDL_TEXTUREACCESS_TARGET,
+        mosaic_width,
+        mosaic_height
+    );
+
+    if (!mosaic)
+        return nullptr;
+
+    SDL_Texture* previous_target =
+        SDL_GetRenderTarget(RENDERER);
+
+    if (SDL_SetRenderTarget(RENDERER, mosaic) != 0) {
+        SDL_DestroyTexture(mosaic);
+        return nullptr;
+    }
+
+    SDL_SetRenderDrawColor(RENDERER, 0, 0, 0, 255);
+    SDL_RenderClear(RENDERER);
+
+    vector<fs::path> series_folders;
+
+    std::error_code ec;
+
+    for (const auto& entry :
+         fs::directory_iterator(
+             "/switch/WookReader/books",
+             ec
+         )) {
+
+        std::error_code entry_error;
+
+        if (entry.is_directory(entry_error) && !entry_error)
+            series_folders.push_back(entry.path());
+    }
+
+    sort(
+        series_folders.begin(),
+        series_folders.end()
+    );
+
+    int loaded = 0;
+
+    for (const fs::path& folder : series_folders) {
+        if (loaded >= 4)
+            break;
+
+        SDL_Texture* cover = load_series_cover(folder);
+
+        if (!cover)
+            continue;
+
+        SDL_Rect destination = {
+            (loaded % 2) * 200,
+            (loaded / 2) * 300,
+            200,
+            300
+        };
+
+        SDL_RenderCopy(
+            RENDERER,
+            cover,
+            nullptr,
+            &destination
+        );
+
+        SDL_DestroyTexture(cover);
+
+        loaded++;
+    }
+
+    SDL_SetRenderTarget(
+        RENDERER,
+        previous_target
+    );
+
+    if (loaded == 0) {
+        SDL_DestroyTexture(mosaic);
+        return nullptr;
+    }
+
+    return mosaic;
+}
 static const char PAGECACHE_DIR[] = "/switch/WookReader/.pagecache";
 
 // FNV-1a key shared with CBZPageLayout — must stay in sync.
@@ -611,6 +700,190 @@ static uint64_t comic_cache_key(const char* path) {
 
 // Read first line of the page-name cache (.lst) — written by CBZPageLayout
 // after a full enumeration. Returns the alphabetically first page name, or "".
+static SDL_Texture* load_last_read_page(
+    const string& book_path
+) {
+    if (!config) {
+        config = (config_t*)malloc(sizeof(config_t));
+
+        config_init(config);
+
+        config_read_file(
+            config,
+            configFile
+        );
+    }
+
+    string key = chooser_sanitize(book_path);
+
+    config_setting_t* setting =
+        config_setting_get_member(
+            config_root_setting(config),
+            key.c_str()
+        );
+
+    int page_index =
+        setting
+            ? config_setting_get_int(setting)
+            : 0;
+
+    char cache_path[512];
+
+    snprintf(
+        cache_path,
+        sizeof(cache_path),
+        "%s/%016llx.lst",
+        PAGECACHE_DIR,
+        (unsigned long long)comic_cache_key(
+            book_path.c_str()
+        )
+    );
+
+    FILE* cache_file = fopen(cache_path, "r");
+
+    if (!cache_file)
+        return nullptr;
+
+    char line[512] = {};
+    string target_page;
+
+    for (int i = 0; i <= page_index; i++) {
+        if (!fgets(line, sizeof(line), cache_file))
+            break;
+
+        if (i == page_index) {
+            size_t length = strlen(line);
+
+            while (
+                length > 0 &&
+                (
+                    line[length - 1] == '\n' ||
+                    line[length - 1] == '\r'
+                )
+            ) {
+                length--;
+            }
+
+            target_page.assign(
+                line,
+                length
+            );
+        }
+    }
+
+    fclose(cache_file);
+
+    if (target_page.empty())
+        return nullptr;
+
+    struct archive* archive = archive_read_new();
+
+    archive_read_support_format_all(archive);
+    archive_read_support_filter_all(archive);
+
+    if (
+        archive_read_open_filename(
+            archive,
+            book_path.c_str(),
+            1048576
+        ) != ARCHIVE_OK
+    ) {
+        archive_read_free(archive);
+        return nullptr;
+    }
+
+    vector<unsigned char> image_data;
+
+    struct archive_entry* entry = nullptr;
+
+    while (
+        archive_read_next_header(
+            archive,
+            &entry
+        ) == ARCHIVE_OK
+    ) {
+        const char* name =
+            archive_entry_pathname(entry);
+
+        if (!name || target_page != name) {
+            archive_read_data_skip(archive);
+            continue;
+        }
+
+        unsigned char buffer[65536];
+
+        la_ssize_t bytes_read = 0;
+
+        while (
+            (
+                bytes_read = archive_read_data(
+                    archive,
+                    buffer,
+                    sizeof(buffer)
+                )
+            ) > 0
+        ) {
+            image_data.insert(
+                image_data.end(),
+                buffer,
+                buffer + bytes_read
+            );
+        }
+
+        break;
+    }
+
+    archive_read_free(archive);
+
+    if (image_data.empty())
+        return nullptr;
+
+    int width = 0;
+    int height = 0;
+    int channels = 0;
+
+    unsigned char* pixels =
+        stbi_load_from_memory(
+            image_data.data(),
+            (int)image_data.size(),
+            &width,
+            &height,
+            &channels,
+            4
+        );
+
+    if (!pixels)
+        return nullptr;
+
+    SDL_Surface* surface =
+        SDL_CreateRGBSurfaceFrom(
+            pixels,
+            width,
+            height,
+            32,
+            width * 4,
+            0x000000FF,
+            0x0000FF00,
+            0x00FF0000,
+            0xFF000000
+        );
+
+    SDL_Texture* texture = nullptr;
+
+    if (surface) {
+        texture =
+            SDL_CreateTextureFromSurface(
+                RENDERER,
+                surface
+            );
+
+        SDL_FreeSurface(surface);
+    }
+
+    stbi_image_free(pixels);
+
+    return texture;
+}
 static string cover_name_from_page_cache(const char* path) {
     char lst[512];
     snprintf(lst, sizeof(lst), "%s/%016llx.lst", PAGECACHE_DIR,
@@ -1335,7 +1608,8 @@ for (SDL_Texture* texture : folder_cover_textures) {
 folder_cover_textures.clear();
 
 folder_cards_view =
-    dir == "/switch/WookReader/books";
+    dir == "/switch/WookReader/books" ||
+    dir == "/switch/WookReader";
     cover_textures.clear();  // cache owns textures, do NOT destroy them here
     trunc_cache.clear();
     scroll_y     = 0;
@@ -1395,10 +1669,34 @@ folder_cards_view =
 
   folder_cover_textures.resize(numFolders, nullptr);
 
-  for (int i = 0; i < numFolders; i++) {
+ for (int i = 0; i < numFolders; i++) {
+    if (dir == "/switch/WookReader") {
+       if (!g_recent.empty()) {
     folder_cover_textures[i] =
-        load_series_cover(sorted_entries[i]);
-  }
+        load_last_read_page(
+            g_recent.front()
+        );
+
+    if (!folder_cover_textures[i]) {
+        fs::path last_book(g_recent.front());
+
+        folder_cover_textures[i] =
+            load_series_cover(
+                last_book.parent_path()
+            );
+    }
+}
+        } else if (
+            sorted_entries[i].filename().string() == "books"
+        ) {
+            folder_cover_textures[i] =
+                load_books_mosaic();
+        }
+    } else {
+        folder_cover_textures[i] =
+            load_series_cover(sorted_entries[i]);
+    }
+}
 }
 
     int numBooks = amountOfFiles - numFolders;
@@ -2208,7 +2506,14 @@ draw_dashboard_text(progress_text, 16, 44);
   }
 
   string series_name =
-      sorted_entries[i].filename().string();
+    sorted_entries[i].filename().string();
+
+if (path == "/switch/WookReader") {
+    if (sorted_entries[i].string() == RECENT_SENTINEL)
+        series_name = "Ultimo lido";
+    else if (series_name == "books")
+        series_name = "Books/Mangas";
+}
 
   int label_width = 0;
 
