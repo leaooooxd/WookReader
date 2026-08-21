@@ -45,6 +45,9 @@ public:
     void apply_first_image();  // decode _first_image_raw → SDL_Texture, sets _valid = true
 
     void toggle_spread();
+bool isRotated() const {
+    return _rotation == 90;
+}
     void zoom_at_point(float delta, float px, float py);
     void poll_prefetch();  // call once per frame to upload finished prefetch pixels to GPU
 
