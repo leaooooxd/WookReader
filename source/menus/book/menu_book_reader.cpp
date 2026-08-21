@@ -30,10 +30,13 @@ void Menu_OpenBook(char *path, int scroll_speed, float zoom_amount)
         return;
     }
 
+    Log_Write("NEETREADER OPEN mode=" +
+              std::string(configMangaMode ? "Oriental" : "Western") +
+              " path=" + std::string(path));
+
     /*TouchInfo touchInfo;
     Touch_Init(&touchInfo);*/
     hidInitializeTouchScreen();
-
     // Touch gesture state
     float touch_prev_x0    = 0.0f, touch_prev_y0 = 0.0f;
     float touch_prev_x1    = 0.0f, touch_prev_y1 = 0.0f;
@@ -141,6 +144,15 @@ void Menu_OpenBook(char *path, int scroll_speed, float zoom_amount)
                 bool did_swipe = false;
 
                 bool nav_land = reader->navLandscape();
+                Log_Write("NEETREADER TOUCH mode=" +
+          std::string(configMangaMode ? "Oriental" : "Western") +
+          " layout=" + std::to_string(static_cast<int>(layout)) +
+          " nav_land=" + std::to_string(static_cast<int>(nav_land)) +
+          " dragging=" + std::to_string(static_cast<int>(touch_dragging)) +
+          " x=" + std::to_string(touch_start_x) +
+          " y=" + std::to_string(touch_start_y) +
+          " dx=" + std::to_string(dx_total) +
+          " dy=" + std::to_string(dy_total));
 
                 // Horizontal swipe → page nav when buttons are left/right
                 if (touch_dragging && adx > SWIPE_THRESH && adx > ady * 1.5f && !nav_land)
