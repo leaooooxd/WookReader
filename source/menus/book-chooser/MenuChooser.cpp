@@ -1757,7 +1757,42 @@ if (completed)
                      dx + (dw - label_w) / 2, strip_y + (strip_h - lf_h) / 2,
                      WHITE, fname.c_str());
       }
+{
+  int badge_size = 22;
+  int badge_x = dx + 6;
+  int badge_y = dy + dh - strip_h - badge_size - 6;
 
+  SDL_SetRenderDrawBlendMode(RENDERER, SDL_BLENDMODE_BLEND);
+
+  SDL_SetRenderDrawColor(RENDERER, 0, 0, 0, 190);
+  SDL_Rect badge = {badge_x, badge_y, badge_size, badge_size};
+  SDL_RenderFillRect(RENDERER, &badge);
+
+  SDL_SetRenderDrawColor(RENDERER, 255, 255, 255, 220);
+  SDL_RenderDrawRect(RENDERER, &badge);
+
+  if (bi < (int)entry_completed.size() && entry_completed[bi]) {
+    SDL_SetRenderDrawColor(RENDERER, 80, 220, 120, 255);
+
+    SDL_RenderDrawLine(RENDERER,
+                       badge_x + 4, badge_y + 11,
+                       badge_x + 9, badge_y + 16);
+
+    SDL_RenderDrawLine(RENDERER,
+                       badge_x + 9, badge_y + 16,
+                       badge_x + 18, badge_y + 6);
+
+    SDL_RenderDrawLine(RENDERER,
+                       badge_x + 4, badge_y + 12,
+                       badge_x + 9, badge_y + 17);
+
+    SDL_RenderDrawLine(RENDERER,
+                       badge_x + 9, badge_y + 17,
+                       badge_x + 18, badge_y + 7);
+  }
+
+  SDL_SetRenderDrawBlendMode(RENDERER, SDL_BLENDMODE_NONE);
+}
       // Selection highlight — 3px bright border drawn over cover + strip
       if (chosen_index == numFolders + bi) {
         SDL_SetRenderDrawBlendMode(RENDERER, SDL_BLENDMODE_BLEND);
