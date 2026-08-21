@@ -995,6 +995,7 @@ void Menu_StartChoosing() {
   int numFolders = 0;
   vector<SDL_Texture*> cover_textures;
   vector<pair<int,int>> entry_progress;  // parallel to cover_textures: (last_page, total_pages)
+  vector<bool> entry_completed;
   int scroll_y = 0;
   int cover_load_index = 0;  // next cover index to submit to background loader
 
