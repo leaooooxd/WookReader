@@ -559,15 +559,42 @@ void Menu_RecordRecentBook(const std::string& path) {
 
 // ── Cover thumbnail loading ───────────────────────────────────────────────────
 static SDL_Texture* load_series_cover(const fs::path& folder_path) {
-  fs::path cover_path = folder_path / "cover.jpg";
+    fs::path cover_path = folder_path / "cover.jpg";
 
-  std::error_code ec;
+    std::error_code ec;
 
-  if (!fs::exists(cover_path, ec) || ec)
-    return nullptr;
+    if (!fs::exists(cover_path, ec) || ec) {
+        Log_Error(
+            "SERIES COVER nao encontrada: " +
+            cover_path.string()
+        );
 
-  return IMG_LoadTexture(RENDERER,
-                         cover_path.string().c_str());
+        return nullptr;
+    }
+
+    SDL_Texture* texture =
+        IMG_LoadTexture(
+            RENDERER,
+            cover_path.string().c_str()
+        );
+
+    if (!texture) {
+        Log_Error(
+            std::string("SERIES COVER erro: ") +
+            IMG_GetError() +
+            " path=" +
+            cover_path.string()
+        );
+
+        return nullptr;
+    }
+
+    Log_Write(
+        "SERIES COVER carregada: " +
+        cover_path.string()
+    );
+
+    return texture;
 }
 static const char PAGECACHE_DIR[] = "/switch/WookReader/.pagecache";
 
@@ -1342,7 +1369,7 @@ folder_cards_view =
       min(220, available_width / folder_card_cols);
 
   folder_card_height =
-      (folder_card_width * 640) / 400 + 44;
+    (folder_card_width * 600) / 400 + 44;
 
   int grid_width =
       folder_card_cols * folder_card_width +
