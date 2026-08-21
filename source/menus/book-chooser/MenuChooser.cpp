@@ -558,7 +558,17 @@ void Menu_RecordRecentBook(const std::string& path) {
 }
 
 // ── Cover thumbnail loading ───────────────────────────────────────────────────
+static SDL_Texture* load_series_cover(const fs::path& folder_path) {
+  fs::path cover_path = folder_path / "cover.jpg";
 
+  std::error_code ec;
+
+  if (!fs::exists(cover_path, ec) || ec)
+    return nullptr;
+
+  return IMG_LoadTexture(RENDERER,
+                         cover_path.string().c_str());
+}
 static const char PAGECACHE_DIR[] = "/switch/WookReader/.pagecache";
 
 // FNV-1a key shared with CBZPageLayout — must stay in sync.
@@ -1082,6 +1092,16 @@ void Menu_StartChoosing() {
   // Grid state
   int numFolders = 0;
   vector<SDL_Texture*> cover_textures;
+  vector<SDL_Texture*> folder_cover_textures;
+
+bool folder_cards_view = false;
+
+int folder_card_cols = 1;
+int folder_card_width = 220;
+int folder_card_height = 380;
+int folder_card_gap = 24;
+int folder_card_start_x = 0;
+int folder_card_start_y = 20;
   vector<pair<int,int>> entry_progress;  // parallel to cover_textures: (last_page, total_pages)
   vector<bool> entry_completed;
   bool dashboard_visible = false;
@@ -1115,7 +1135,17 @@ string dashboard_last_chapter;
   // Keep the selected item visible in the viewport.
   auto update_scroll = [&]() {
     int top, bot;
-    if (chosen_index < numFolders) {
+    if (folder_cards_view && chosen_index < numFolders) {
+  int row =
+      chosen_index / folder_card_cols;
+
+  top =
+      folder_card_start_y +
+      row * (folder_card_height + folder_card_gap);
+
+  bot =
+      top + folder_card_height;
+} else if (chosen_index < numFolders) {
       top = chosen_index * FOLDER_H;
       bot = top + FOLDER_H;
     } else {
@@ -1271,7 +1301,15 @@ if (numBooks > 0) {
         cl_in_flight[w] = -1;
       }
     }
+for (SDL_Texture* texture : folder_cover_textures) {
+  if (texture)
+    SDL_DestroyTexture(texture);
+}
 
+folder_cover_textures.clear();
+
+folder_cards_view =
+    dir == "/switch/WookReader/books";
     cover_textures.clear();  // cache owns textures, do NOT destroy them here
     trunc_cache.clear();
     scroll_y     = 0;
@@ -1286,6 +1324,56 @@ if (numBooks > 0) {
     }
 
     amountOfFiles  = (int)sorted_entries.size();
+    if (folder_cards_view && numFolders > 0) {
+  if (numFolders <= 4)
+    folder_card_cols = numFolders;
+  else if (numFolders <= 6)
+    folder_card_cols = 3;
+  else if (numFolders <= 8)
+    folder_card_cols = 4;
+  else
+    folder_card_cols = 5;
+
+  int available_width =
+      windowX - 80 -
+      (folder_card_cols - 1) * folder_card_gap;
+
+  folder_card_width =
+      min(220, available_width / folder_card_cols);
+
+  folder_card_height =
+      (folder_card_width * 640) / 400 + 44;
+
+  int grid_width =
+      folder_card_cols * folder_card_width +
+      (folder_card_cols - 1) * folder_card_gap;
+
+  folder_card_start_x =
+      (windowX - grid_width) / 2;
+
+  int rows =
+      (numFolders + folder_card_cols - 1) /
+      folder_card_cols;
+
+  int grid_height =
+      rows * folder_card_height +
+      (rows - 1) * folder_card_gap;
+
+  int available_height =
+      windowY - BOTTOM_H;
+
+  folder_card_start_y =
+      grid_height < available_height
+          ? (available_height - grid_height) / 2
+          : 20;
+
+  folder_cover_textures.resize(numFolders, nullptr);
+
+  for (int i = 0; i < numFolders; i++) {
+    folder_cover_textures[i] =
+        load_series_cover(sorted_entries[i]);
+  }
+}
 
     int numBooks = amountOfFiles - numFolders;
     cover_textures.resize(numBooks, nullptr);
@@ -1310,6 +1398,7 @@ if (numBooks > 0) {
     sorted_entries.clear();
     for (const auto& p : g_recent) sorted_entries.push_back(fs::path(p));
     amountOfFiles = (int)sorted_entries.size();
+    
     cover_textures.resize(amountOfFiles, nullptr);
     cover_load_index = 0;
     load_entry_progress();
@@ -1474,7 +1563,21 @@ if (numBooks > 0) {
       if (drawOption) {
         option_index = (option_index > 0) ? option_index - 1 : amountOfOptions - 1;
       } else if (!isWarningOnScreen) {
-        if (chosen_index < numFolders) {
+        if (folder_cards_view) {
+  int col =
+      chosen_index % folder_card_cols;
+
+  if (chosen_index >= folder_card_cols) {
+    chosen_index -= folder_card_cols;
+  } else {
+    int last_row =
+        (numFolders - 1) / folder_card_cols;
+
+    chosen_index =
+        min(last_row * folder_card_cols + col,
+            numFolders - 1);
+  }
+} else if (chosen_index < numFolders) {
           // Folder list: move up or wrap to last book
           if (chosen_index > 0)
             chosen_index--;
@@ -1498,7 +1601,14 @@ if (numBooks > 0) {
         option_index = (option_index == amountOfOptions - 1) ? 0 : option_index + 1;
       } else if (!isWarningOnScreen) {
         int numBooks = amountOfFiles - numFolders;
-        if (chosen_index < numFolders) {
+        if (folder_cards_view) {
+  if (chosen_index + folder_card_cols < numFolders) {
+    chosen_index += folder_card_cols;
+  } else {
+    chosen_index =
+        chosen_index % folder_card_cols;
+  }
+} else if (chosen_index < numFolders) {
           // Folder list: move down (may cross into book grid)
           chosen_index++;
           if (chosen_index >= amountOfFiles) chosen_index = 0;
@@ -1549,7 +1659,15 @@ if (numBooks > 0) {
             break;
           default: break;
         }
-      } else if (!isWarningOnScreen && chosen_index >= numFolders) {
+     } else if (!isWarningOnScreen &&
+           folder_cards_view &&
+           numFolders > 0) {
+  chosen_index =
+      (chosen_index + 1) % numFolders;
+
+  update_scroll();
+} else if (!isWarningOnScreen &&
+           chosen_index >= numFolders) {
         // Move right within the grid row
         int bi  = chosen_index - numFolders;
         int col = bi % cols;
@@ -1592,7 +1710,17 @@ if (numBooks > 0) {
             break;
           default: break;
         }
-      } else if (!isWarningOnScreen && chosen_index >= numFolders) {
+      } else if (!isWarningOnScreen &&
+           folder_cards_view &&
+           numFolders > 0) {
+  chosen_index =
+      chosen_index > 0
+          ? chosen_index - 1
+          : numFolders - 1;
+
+  update_scroll();
+} else if (!isWarningOnScreen &&
+           chosen_index >= numFolders) {
         // Move left within the grid row
         int bi  = chosen_index - numFolders;
         int col = bi % cols;
@@ -1691,6 +1819,16 @@ if (numBooks > 0) {
               int numBooks = amountOfFiles - numFolders;
               int numRows  = (numBooks + cols - 1) / cols;
               int total_h  = numFolders * FOLDER_H + numRows * cell_h;
+              if (folder_cards_view) {
+  int card_rows =
+      (numFolders + folder_card_cols - 1) /
+      folder_card_cols;
+
+  total_h =
+      folder_card_start_y +
+      card_rows * folder_card_height +
+      (card_rows - 1) * folder_card_gap;
+}
              int max_sy =
     max(0, total_h - (windowY - BOTTOM_H - dashboard_height));
               if (scroll_y < 0)      scroll_y = 0;
@@ -1710,7 +1848,43 @@ if (numBooks > 0) {
     touch_start_y - dashboard_height + scroll_y;
             int   tapped     = -1;
 
-            int folder_idx = (int)(content_ty / FOLDER_H);
+            int folder_idx = -1;
+
+if (folder_cards_view) {
+  int relative_x =
+      (int)touch_start_x - folder_card_start_x;
+
+  int relative_y =
+      (int)content_ty - folder_card_start_y;
+
+  if (relative_x >= 0 && relative_y >= 0) {
+    int col =
+        relative_x /
+        (folder_card_width + folder_card_gap);
+
+    int row =
+        relative_y /
+        (folder_card_height + folder_card_gap);
+
+    int inside_x =
+        relative_x %
+        (folder_card_width + folder_card_gap);
+
+    int inside_y =
+        relative_y %
+        (folder_card_height + folder_card_gap);
+
+    if (col < folder_card_cols &&
+        inside_x < folder_card_width &&
+        inside_y < folder_card_height) {
+      folder_idx =
+          row * folder_card_cols + col;
+    }
+  }
+} else {
+  folder_idx =
+      (int)(content_ty / FOLDER_H);
+}
             if (folder_idx >= 0 && folder_idx < numFolders)
             {
               tapped = folder_idx;
@@ -1954,6 +2128,114 @@ draw_dashboard_text(progress_text, 16, 44);
 
     // ── Folder list (top of content) ──────────────────────────────────────────
     for (int i = 0; i < numFolders; i++) {
+      if (folder_cards_view) {
+  int row = i / folder_card_cols;
+  int col = i % folder_card_cols;
+
+  int card_x =
+      folder_card_start_x +
+      col * (folder_card_width + folder_card_gap);
+
+  int card_y =
+      folder_card_start_y +
+      row * (folder_card_height + folder_card_gap) -
+      scroll_y;
+
+  if (card_y + folder_card_height < 0 ||
+      card_y > windowY - BOTTOM_H)
+    continue;
+
+  int image_height =
+      folder_card_height - 44;
+
+  SDL_SetRenderDrawBlendMode(RENDERER, SDL_BLENDMODE_NONE);
+  SDL_SetRenderDrawColor(RENDERER, 0, 0, 0, 255);
+
+  SDL_Rect card_background = {
+      card_x,
+      card_y,
+      folder_card_width,
+      folder_card_height
+  };
+
+  SDL_RenderFillRect(RENDERER, &card_background);
+
+  SDL_Texture* cover =
+      i < (int)folder_cover_textures.size()
+          ? folder_cover_textures[i]
+          : nullptr;
+
+  if (cover) {
+    SDL_DrawImageScale(RENDERER,
+                       cover,
+                       card_x,
+                       card_y,
+                       folder_card_width,
+                       image_height);
+  } else {
+    SDL_DrawImageScale(RENDERER,
+                       folder_image,
+                       card_x + (folder_card_width - 64) / 2,
+                       card_y + (image_height - 64) / 2,
+                       64,
+                       64);
+  }
+
+  string series_name =
+      sorted_entries[i].filename().string();
+
+  int label_width = 0;
+
+  TTF_SizeText(ROBOTO_20,
+               series_name.c_str(),
+               &label_width,
+               nullptr);
+
+  while (label_width > folder_card_width - 16 &&
+         !series_name.empty()) {
+    series_name.pop_back();
+
+    string shortened = series_name + "...";
+
+    TTF_SizeText(ROBOTO_20,
+                 shortened.c_str(),
+                 &label_width,
+                 nullptr);
+
+    if (label_width <= folder_card_width - 16) {
+      series_name = shortened;
+      break;
+    }
+  }
+
+  SDL_DrawText(RENDERER,
+               ROBOTO_20,
+               card_x + (folder_card_width - label_width) / 2,
+               card_y + image_height + 10,
+               WHITE,
+               series_name.c_str());
+
+  if (chosen_index == i) {
+    SDL_SetRenderDrawColor(RENDERER,
+                           255,
+                           255,
+                           255,
+                           255);
+
+    for (int border = 0; border < 3; border++) {
+      SDL_Rect selection = {
+          card_x + border,
+          card_y + border,
+          folder_card_width - border * 2,
+          folder_card_height - border * 2
+      };
+
+      SDL_RenderDrawRect(RENDERER, &selection);
+    }
+  }
+
+  continue;
+}
       int row_y =
     dashboard_height + i * FOLDER_H - scroll_y;
       if (row_y + FOLDER_H < 0 || row_y > windowY - BOTTOM_H) continue;
