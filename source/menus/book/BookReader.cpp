@@ -632,12 +632,55 @@ void BookReader::draw(bool drawHelp, bool drawNotes) {
       }
     }
   }
+if (!_chapter_notice.empty() &&
+    SDL_GetTicks() < _chapter_notice_until) {
+  int text_width = 0;
+  int text_height = 0;
 
+  TTF_SizeText(ROBOTO_30,
+               _chapter_notice.c_str(),
+               &text_width,
+               &text_height);
+
+  int notice_width = text_width + 60;
+  int notice_height = text_height + 24;
+
+  int notice_x = (windowX - notice_width) / 2;
+  int notice_y = 24;
+
+  SDL_SetRenderDrawBlendMode(RENDERER, SDL_BLENDMODE_BLEND);
+  SDL_SetRenderDrawColor(RENDERER, 0, 0, 0, 200);
+
+  SDL_Rect notice_rect = {
+      notice_x,
+      notice_y,
+      notice_width,
+      notice_height
+  };
+
+  SDL_RenderFillRect(RENDERER, &notice_rect);
+
+  SDL_SetRenderDrawColor(RENDERER, 255, 255, 255, 90);
+  SDL_RenderDrawRect(RENDERER, &notice_rect);
+
+  SDL_DrawText(RENDERER,
+               ROBOTO_30,
+               notice_x + 30,
+               notice_y + 12,
+               WHITE,
+               _chapter_notice.c_str());
+
+  SDL_SetRenderDrawBlendMode(RENDERER, SDL_BLENDMODE_NONE);
+}
   SDL_RenderPresent(RENDERER);
 }
 
 void BookReader::show_status_bar() { status_bar_visible_counter = 200; }
 void BookReader::reset_nav_buttons() { _btn_hide_at = SDL_GetTicks() + 3000; }
+void BookReader::show_chapter_notice(const std::string& text) {
+  _chapter_notice = text;
+  _chapter_notice_until = SDL_GetTicks() + 2000;
+}
 
 void BookReader::save_progress() {
   if (!layout) return;
