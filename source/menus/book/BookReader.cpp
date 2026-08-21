@@ -382,11 +382,19 @@ void BookReader::zoom_max() {
 
 void BookReader::switch_page_layout() {
   // CBZ: Y button toggles single-page / two-page spread
-  if (_is_cbz) {
-    if (layout) static_cast<CBZPageLayout*>(layout)->toggle_spread();
-    _nav_landscape = !_nav_landscape;
+ if (_is_cbz) {
+    if (layout) {
+        CBZPageLayout* cbz =
+            static_cast<CBZPageLayout*>(layout);
+
+        cbz->toggle_spread();
+
+        _nav_landscape =
+            cbz->isRotated();
+    }
+
     return;
-  }
+}
 
   switch (_currentPageLayout) {
     case BookPageLayoutPortrait:
