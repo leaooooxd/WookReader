@@ -11,14 +11,49 @@ extern "C"
 #include <string>
 #include <cmath>
 #include <cstdlib>
+#include <libconfig.h>
 #include "BookReader.hpp"
 
 extern void Log_Write(const std::string &msg);
 extern void Log_Error(const std::string &msg);
+extern config_t* optionConfig;
+extern const char* optionFile;
 extern std::string Menu_GetAdjacentBook(const std::string& current_path,
                                          int direction);
 
 extern void Menu_RecordRecentBook(const std::string& path);
+static void save_reading_direction() {
+    if (!optionConfig)
+        return;
+
+    config_setting_t* setting =
+        config_setting_get_member(
+            config_root_setting(optionConfig),
+            "MangaMode"
+        );
+
+    if (!setting) {
+        setting =
+            config_setting_add(
+                config_root_setting(optionConfig),
+                "MangaMode",
+                CONFIG_TYPE_BOOL
+            );
+    }
+
+    if (!setting)
+        return;
+
+    config_setting_set_bool(
+        setting,
+        configMangaMode
+    );
+
+    config_write_file(
+        optionConfig,
+        optionFile
+    );
+}
 
 void Menu_OpenBook(char *path, int scroll_speed, float zoom_amount)
 {
@@ -427,7 +462,45 @@ else
         {
             notesMenu = true;
         }
+if (helpMenu) {
+    const u64 previous_option =
+        HidNpadButton_Up |
+        HidNpadButton_Left |
+        HidNpadButton_StickLUp |
+        HidNpadButton_StickLLeft |
+        HidNpadButton_StickRUp |
+        HidNpadButton_StickRLeft;
 
+    const u64 next_option =
+        HidNpadButton_Down |
+        HidNpadButton_Right |
+        HidNpadButton_StickLDown |
+        HidNpadButton_StickLRight |
+        HidNpadButton_StickRDown |
+        HidNpadButton_StickRRight;
+
+    if (kDown & previous_option) {
+        reader->readingDirectionSelection = 0;
+    } else if (kDown & next_option) {
+        reader->readingDirectionSelection = 1;
+    }
+
+    if (kDown & HidNpadButton_A) {
+        configMangaMode =
+            reader->readingDirectionSelection == 1;
+
+        save_reading_direction();
+
+        Log_Write(
+            "NEETREADER READING DIRECTION: " +
+            std::string(
+                configMangaMode
+                    ? "Eastern"
+                    : "Western"
+            )
+        );
+    }
+}
         if (notesMenu && kDown & HidNpadButton_A)
         {
             // Edit note via software keyboard
@@ -474,9 +547,14 @@ else
         }
 
         if (!notesMenu && kDown & HidNpadButton_Plus)
-        {
-            helpMenu = !helpMenu;
-        }
+{
+    helpMenu = !helpMenu;
+
+    if (helpMenu) {
+        reader->readingDirectionSelection =
+            configMangaMode ? 1 : 0;
+    }
+}
         int chapter_request = reader->takeChapterChangeRequest();
 
 if (chapter_request != 0)
