@@ -44,6 +44,11 @@ public:
 
     BookPageLayout currentPageLayout() { return _currentPageLayout; }
     bool navLandscape()                { return _nav_landscape; }
+int takeChapterChangeRequest() {
+  int request = _chapter_change_request;
+  _chapter_change_request = 0;
+  return request;
+}
 
 private:
     void show_status_bar();
@@ -67,6 +72,7 @@ private:
     std::string book_path; // needed to reconstruct CBZPageLayout on layout switch
     bool _is_cbz = false;
     int  _total_pages = 0;
+int _chapter_change_request = 0;
     std::string _notes;
 };
 
