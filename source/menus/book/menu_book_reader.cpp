@@ -486,8 +486,24 @@ if (helpMenu) {
     }
 
     if (kDown & HidNpadButton_A) {
-        configMangaMode =
-            reader->readingDirectionSelection == 1;
+    configMangaMode =
+        reader->readingDirectionSelection == 1;
+
+    save_reading_direction();
+
+    Log_Write(
+        "NEETREADER READING DIRECTION: " +
+        std::string(
+            configMangaMode
+                ? "Eastern"
+                : "Western"
+        )
+    );
+
+    helpMenu = false;
+
+    continue;
+}
 
         save_reading_direction();
 
