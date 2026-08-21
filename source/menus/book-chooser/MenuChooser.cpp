@@ -1255,6 +1255,7 @@ if (completed)
   if (!g_recent.empty()) {
     string book = g_recent.front();
     Menu_OpenBook((char*)book.c_str(), scroll_speed, zoom_amount);
+    load_entry_progress();
   }
 } else {
         string filename = sel.filename().string();
@@ -1272,6 +1273,7 @@ if (completed)
             string book = sel.string();
             update_recent(book);
             Menu_OpenBook((char*)book.c_str(), scroll_speed, zoom_amount);
+            load_entry_progress();
             if (inRecentFolder) enter_recent();
           } else {
             isWarningOnScreen = true;
@@ -1283,6 +1285,7 @@ if (completed)
           string book = sel.string();
           update_recent(book);
           Menu_OpenBook((char*)book.c_str(), scroll_speed, zoom_amount);
+          load_entry_progress();
           if (inRecentFolder) enter_recent();
         }
       }
@@ -1562,6 +1565,7 @@ if (completed)
   if (!g_recent.empty()) {
     string book = g_recent.front();
     Menu_OpenBook((char*)book.c_str(), scroll_speed, zoom_amount);
+    load_entry_progress();
   }
 } else if (contains(warnedExtentions, extention)) {
                 isWarningOnScreen = true;
@@ -1572,6 +1576,7 @@ if (completed)
                 string book = sel.string();
                 update_recent(book);
                 Menu_OpenBook((char*)book.c_str(), scroll_speed, zoom_amount);
+               load_entry_progress();
                 if (inRecentFolder) enter_recent();
               }
             }
