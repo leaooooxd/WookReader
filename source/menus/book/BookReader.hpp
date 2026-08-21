@@ -22,6 +22,7 @@ public:
     ~BookReader();
 
     bool permStatusBar = false;
+    int readingDirectionSelection = 0;
 
     void previous_page(int n);
     void next_page(int n);
