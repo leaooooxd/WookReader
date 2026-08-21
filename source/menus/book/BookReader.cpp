@@ -107,6 +107,58 @@ static void save_total_pages(const char* book_name, int total) {
     config_write_file(config, configFile);
   }
 }
+static void register_manual_page(const char* book_name,
+                                 int previous_page,
+                                 int current_page,
+                                 int total_pages) {
+  if (!config || total_pages <= 0)
+    return;
+
+  if (current_page != previous_page + 1)
+    return;
+
+  std::string progress_key = std::string(book_name) + "_R";
+
+  config_setting_t* progress =
+      config_setting_get_member(config_root_setting(config),
+                                progress_key.c_str());
+
+  int furthest_page = progress ? config_setting_get_int(progress) : 0;
+
+  if (previous_page > furthest_page)
+    return;
+
+  if (current_page <= furthest_page)
+    return;
+
+  if (!progress) {
+    progress = config_setting_add(config_root_setting(config),
+                                  progress_key.c_str(),
+                                  CONFIG_TYPE_INT);
+  }
+
+  if (!progress)
+    return;
+
+  config_setting_set_int(progress, current_page);
+
+  if (current_page >= total_pages - 1) {
+    std::string completed_key = std::string(book_name) + "_C";
+
+    config_setting_t* completed =
+        config_setting_get_member(config_root_setting(config),
+                                  completed_key.c_str());
+
+    if (!completed) {
+      completed = config_setting_add(config_root_setting(config),
+                                     completed_key.c_str(),
+                                     CONFIG_TYPE_BOOL);
+    }
+
+    if (completed)
+      config_setting_set_bool(completed, true);
+  }
+}
 
 // Returns true if the path is a comic archive (CBZ/CBR/CBT/CB7,
 // case-insensitive)
@@ -235,7 +287,18 @@ void BookReader::previous_page(int n) {
 
 void BookReader::next_page(int n) {
   if (!layout) return;
+
+  int previous_page = layout->current_page();
+
   layout->next_page(n);
+
+  int current_page = layout->current_page();
+
+  register_manual_page(book_name.c_str(),
+                       previous_page,
+                       current_page,
+                       _total_pages);
+
   show_status_bar();
   save_progress();
 }
