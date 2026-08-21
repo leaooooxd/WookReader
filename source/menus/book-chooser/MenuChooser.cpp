@@ -1242,8 +1242,11 @@ void Menu_StartChoosing() {
       const fs::path& sel = sorted_entries[chosen_index];
 
       if (sel.string() == RECENT_SENTINEL) {
-        enter_recent();
-      } else {
+  if (!g_recent.empty()) {
+    string book = g_recent.front();
+    Menu_OpenBook((char*)book.c_str(), scroll_speed, zoom_amount);
+  }
+} else {
         string filename = sel.filename().string();
         string extention;
         if (filename.find('.') != string::npos)
@@ -1545,9 +1548,12 @@ void Menu_StartChoosing() {
                 extention = fs::is_directory(sel, ec) ? "directory" : "none";
               }
 
-              if (sel.string() == RECENT_SENTINEL) {
-                enter_recent();
-              } else if (contains(warnedExtentions, extention)) {
+             if (sel.string() == RECENT_SENTINEL) {
+  if (!g_recent.empty()) {
+    string book = g_recent.front();
+    Menu_OpenBook((char*)book.c_str(), scroll_speed, zoom_amount);
+  }
+} else if (contains(warnedExtentions, extention)) {
                 isWarningOnScreen = true;
               } else if (extention == "directory") {
                 path = sel.string();
@@ -1663,11 +1669,16 @@ void Menu_StartChoosing() {
       if (sorted_entries[i].string() == RECENT_SENTINEL) {
         SDL_Color recentColor = {0, 180, 220, 255};
         SDL_DrawText(RENDERER, ROBOTO_25, 48, row_y + (FOLDER_H - 22) / 2,
-                     recentColor, "Recently Opened");
-      } else {
-        SDL_DrawText(RENDERER, ROBOTO_25, 48, row_y + (FOLDER_H - 22) / 2,
-                     textColor, sorted_entries[i].filename().c_str());
-      }
+                     recentColor, "Ultimo lido");
+     } else {
+  string folder_name = sorted_entries[i].filename().string();
+
+  if (path == "/switch/WookReader" && folder_name == "books")
+    folder_name = "Books/Mangas";
+
+  SDL_DrawText(RENDERER, ROBOTO_25, 48, row_y + (FOLDER_H - 22) / 2,
+               textColor, folder_name.c_str());
+}
     }
 
     // ── Book / comic grid ─────────────────────────────────────────────────────
