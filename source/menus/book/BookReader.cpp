@@ -534,7 +534,12 @@ if (_total_pages > 0) {
             };
         }
 
-        if (i <= current_page) {
+        const bool page_completed =
+    configMangaMode
+        ? i >= _total_pages - 1 - current_page
+        : i <= current_page;
+
+if (page_completed) {
             SDL_SetRenderDrawColor(
                 RENDERER,
                 180,
