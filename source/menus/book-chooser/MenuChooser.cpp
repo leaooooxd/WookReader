@@ -559,8 +559,7 @@ void Menu_RecordRecentBook(const std::string& path) {
 
 // ── Cover thumbnail loading ───────────────────────────────────────────────────
 static SDL_Texture* load_series_cover(const fs::path& folder_path) {
-    fs::path cover_path = folder_path / "cover.jpg";
-
+    fs::path cover_path = folder_path / "cover.png";
     std::error_code ec;
 
     if (!fs::exists(cover_path, ec) || ec) {
