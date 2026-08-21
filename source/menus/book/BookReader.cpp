@@ -280,13 +280,26 @@ BookReader::~BookReader() {
 
 void BookReader::previous_page(int n) {
   if (!layout) return;
+
+  if (n == 1 && layout->current_page() == 0) {
+    _chapter_change_request = -1;
+    return;
+  }
+
   layout->previous_page(n);
   show_status_bar();
   save_progress();
 }
 
+
 void BookReader::next_page(int n) {
   if (!layout) return;
+  if (n == 1 &&
+    _total_pages > 0 &&
+    layout->current_page() >= _total_pages - 1) {
+  _chapter_change_request = 1;
+  return;
+}
 
   int previous_page = layout->current_page();
 
