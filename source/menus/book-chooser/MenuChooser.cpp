@@ -314,7 +314,13 @@ static vector<fs::path> get_sorted_entries(const string& path,
                                              int *out_num_folders) {
   // Collect entries with is_directory and lowercase name cached during iteration
   // to avoid O(N log N) stat() calls in the sort comparator.
-  struct EntryInfo { fs::path p; bool is_dir; string name_lower; };
+  struct EntryInfo {
+  fs::path p;
+  bool is_dir;
+  string name_lower;
+  fs::file_time_type modified_at;
+  bool has_modified_at;
+};
   vector<EntryInfo> infos;
 
   std::error_code ec;
@@ -336,14 +342,39 @@ static vector<fs::path> get_sorted_entries(const string& path,
 
     string name_lower = filename;
     transform(name_lower.begin(), name_lower.end(), name_lower.begin(), ::tolower);
-    infos.push_back({entry.path(), is_dir, std::move(name_lower)});
+    fs::file_time_type modified_at = fs::file_time_type::min();
+bool has_modified_at = false;
+
+if (!is_dir) {
+  std::error_code time_error;
+  modified_at = fs::last_write_time(entry.path(), time_error);
+  has_modified_at = !time_error;
+}
+
+infos.push_back({
+  entry.path(),
+  is_dir,
+  std::move(name_lower),
+  modified_at,
+  has_modified_at
+});
   }
 
   // Sort using cached values — zero stat() calls in comparator; natural sort for numbers
   sort(infos.begin(), infos.end(), [](const EntryInfo& a, const EntryInfo& b) {
-    if (a.is_dir != b.is_dir) return a.is_dir > b.is_dir;
-    return natural_less(a.name_lower, b.name_lower);
-  });
+  if (a.is_dir != b.is_dir)
+    return a.is_dir > b.is_dir;
+
+  if (!a.is_dir) {
+    if (a.has_modified_at != b.has_modified_at)
+      return a.has_modified_at > b.has_modified_at;
+
+    if (a.has_modified_at && a.modified_at != b.modified_at)
+      return a.modified_at < b.modified_at;
+  }
+
+  return natural_less(a.name_lower, b.name_lower);
+});
 
   // Count folders from cached is_dir flags — no extra stat() calls
   int nf = 0;
