@@ -634,43 +634,74 @@ void BookReader::draw(bool drawHelp, bool drawNotes) {
   }
 if (!_chapter_notice.empty() &&
     SDL_GetTicks() < _chapter_notice_until) {
-  int text_width = 0;
-  int text_height = 0;
+  SDL_Surface* notice_surface =
+      TTF_RenderUTF8_Blended(ROBOTO_30,
+                             _chapter_notice.c_str(),
+                             WHITE);
 
-  TTF_SizeText(ROBOTO_30,
-               _chapter_notice.c_str(),
-               &text_width,
-               &text_height);
+  if (notice_surface) {
+    int text_width = notice_surface->w;
+    int text_height = notice_surface->h;
 
-  int notice_width = text_width + 60;
-  int notice_height = text_height + 24;
+    SDL_Texture* notice_texture =
+        SDL_CreateTextureFromSurface(RENDERER, notice_surface);
 
-  int notice_x = (windowX - notice_width) / 2;
-  int notice_y = 24;
+    SDL_FreeSurface(notice_surface);
 
-  SDL_SetRenderDrawBlendMode(RENDERER, SDL_BLENDMODE_BLEND);
-  SDL_SetRenderDrawColor(RENDERER, 0, 0, 0, 200);
+    if (notice_texture) {
+      bool rotated = _nav_landscape;
 
-  SDL_Rect notice_rect = {
-      notice_x,
-      notice_y,
-      notice_width,
-      notice_height
-  };
+      int notice_width =
+          rotated ? text_height + 24 : text_width + 60;
 
-  SDL_RenderFillRect(RENDERER, &notice_rect);
+      int notice_height =
+          rotated ? text_width + 60 : text_height + 24;
 
-  SDL_SetRenderDrawColor(RENDERER, 255, 255, 255, 90);
-  SDL_RenderDrawRect(RENDERER, &notice_rect);
+      int notice_x =
+          rotated
+              ? windowX - notice_width - 24
+              : (windowX - notice_width) / 2;
 
-  SDL_DrawText(RENDERER,
-               ROBOTO_30,
-               notice_x + 30,
-               notice_y + 12,
-               WHITE,
-               _chapter_notice.c_str());
+      int notice_y =
+          rotated
+              ? (windowY - notice_height) / 2
+              : 24;
 
-  SDL_SetRenderDrawBlendMode(RENDERER, SDL_BLENDMODE_NONE);
+      SDL_SetRenderDrawBlendMode(RENDERER, SDL_BLENDMODE_BLEND);
+      SDL_SetRenderDrawColor(RENDERER, 0, 0, 0, 200);
+
+      SDL_Rect notice_rect = {
+          notice_x,
+          notice_y,
+          notice_width,
+          notice_height
+      };
+
+      SDL_RenderFillRect(RENDERER, &notice_rect);
+
+      SDL_SetRenderDrawColor(RENDERER, 255, 255, 255, 90);
+      SDL_RenderDrawRect(RENDERER, &notice_rect);
+
+      SDL_Rect text_rect = {
+          notice_x + (notice_width - text_width) / 2,
+          notice_y + (notice_height - text_height) / 2,
+          text_width,
+          text_height
+      };
+
+      SDL_RenderCopyEx(RENDERER,
+                       notice_texture,
+                       nullptr,
+                       &text_rect,
+                       rotated ? 90.0 : 0.0,
+                       nullptr,
+                       SDL_FLIP_NONE);
+
+      SDL_DestroyTexture(notice_texture);
+
+      SDL_SetRenderDrawBlendMode(RENDERER, SDL_BLENDMODE_NONE);
+    }
+  }
 }
   SDL_RenderPresent(RENDERER);
 }
