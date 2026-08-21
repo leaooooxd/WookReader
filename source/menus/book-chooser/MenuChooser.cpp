@@ -107,6 +107,30 @@ static void update_recent(const string& fpath) {
     if ((int)g_recent.size() > 10) g_recent.resize(10);
     save_recent();
 }
+static void restart_completed_book(const string& path) {
+  if (!config)
+    return;
+
+  string key = chooser_sanitize(path);
+  string completed_key = key + "_C";
+
+  config_setting_t* completed =
+      config_setting_get_member(config_root_setting(config),
+                                completed_key.c_str());
+
+  if (!completed || !config_setting_get_bool(completed))
+    return;
+
+  config_setting_t* page =
+      config_setting_get_member(config_root_setting(config),
+                                key.c_str());
+
+  if (!page)
+    return;
+
+  config_setting_set_int(page, 0);
+  config_write_file(config, configFile);
+}
 
 /*This is for the colors array, don't have a great way of calculating it so i
  * use this definition*/
@@ -1308,6 +1332,7 @@ if (completed)
             isWarningOnScreen = false;
             string book = sel.string();
             update_recent(book);
+            restart_completed_book(book);
             Menu_OpenBook((char*)book.c_str(), scroll_speed, zoom_amount);
             load_entry_progress();
             if (inRecentFolder) enter_recent();
@@ -1320,6 +1345,7 @@ if (completed)
         } else {
           string book = sel.string();
           update_recent(book);
+          restart_completed_book(book);
           Menu_OpenBook((char*)book.c_str(), scroll_speed, zoom_amount);
           load_entry_progress();
           if (inRecentFolder) enter_recent();
@@ -1611,6 +1637,7 @@ if (completed)
               } else {
                 string book = sel.string();
                 update_recent(book);
+               restart_completed_book(book);
                 Menu_OpenBook((char*)book.c_str(), scroll_speed, zoom_amount);
                load_entry_progress();
                 if (inRecentFolder) enter_recent();
