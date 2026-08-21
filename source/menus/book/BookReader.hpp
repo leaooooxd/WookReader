@@ -49,6 +49,13 @@ void show_chapter_notice(const std::string& text);
 int totalPages() const {
     return _total_pages;
 }
+void openOnLastPage() {
+    if (_total_pages > 0) {
+        goto_page(_total_pages);
+    } else {
+        _open_on_last_page = true;
+    }
+}
 int takeChapterChangeRequest() {
   int request = _chapter_change_request;
   _chapter_change_request = 0;
@@ -77,6 +84,7 @@ private:
     std::string book_path; // needed to reconstruct CBZPageLayout on layout switch
     bool _is_cbz = false;
     int  _total_pages = 0;
+bool _open_on_last_page = false;
 int _chapter_change_request = 0;
 std::string _chapter_notice;
 uint32_t _chapter_notice_until = 0;
