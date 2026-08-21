@@ -505,17 +505,7 @@ if (helpMenu) {
     continue;
 }
 
-        save_reading_direction();
-
-        Log_Write(
-            "NEETREADER READING DIRECTION: " +
-            std::string(
-                configMangaMode
-                    ? "Eastern"
-                    : "Western"
-            )
-        );
-    }
+        
 }
         if (notesMenu && kDown & HidNpadButton_A)
         {
