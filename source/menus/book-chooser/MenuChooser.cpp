@@ -2819,7 +2819,7 @@ if (path == "/switch/WookReader") {
       SDL_DrawText(RENDERER, ROBOTO_25, optTextX, optTextY + 38 * 6,
                    textColor, "Reading Direction: ");
       SDL_DrawText(RENDERER, ROBOTO_25, optTextX + 400, optTextY + 38 * 6,
-                   textColor, configMangaMode ? "Oriental" : "Western");
+                   textColor, configMangaMode ? "Eastern" : "Western"
     }
 
     // ── Notes overlay ─────────────────────────────────────────────────────────
