@@ -308,7 +308,54 @@ static bool natural_less(const string& a, const string& b) {
   }
   return a.size() < b.size();
 }
+struct ChapterOrder {
+  long long number = 0;
+  long long extra = -1;
+  bool recognized = false;
+};
 
+static ChapterOrder get_chapter_order(const string& filename) {
+  static const regex chapter_pattern(
+      R"((?:^|[^A-Za-z])(?:chapters?|chapitres?|chaps?|chpt?|chs?|cap(?:itulos?|ítulos?)?s?|episodes?|episodios?|episódios?|eps?|c)\s*(?:n(?:o|º|°)?\.?|#)?\s*[.\-_:]*\s*([0-9]+)(?:[.,]([0-9]+))?)",
+      regex_constants::icase);
+
+  static const regex tags_pattern(
+      R"(\[[^\]]*\]|\([^)]*\)|\{[^}]*\})");
+
+  static const regex volume_pattern(
+      R"((?:^|[^A-Za-z])(?:volumes?|vols?|v)\s*[.\-_:]*\s*[0-9]+(?:[.,][0-9]+)?)",
+      regex_constants::icase);
+
+  static const regex number_pattern(
+      R"(([0-9]+)(?:[.,]([0-9]+))?)");
+
+  string name = fs::path(filename).stem().string();
+  smatch match;
+
+  if (!regex_search(name, match, chapter_pattern)) {
+    name = regex_replace(name, tags_pattern, " ");
+    name = regex_replace(name, volume_pattern, " ");
+
+    sregex_iterator current(name.begin(), name.end(), number_pattern);
+    sregex_iterator end;
+
+    if (current == end)
+      return {};
+
+    for (; current != end; ++current)
+      match = *current;
+  }
+
+  try {
+    ChapterOrder result;
+    result.number = stoll(match[1].str());
+    result.extra = match[2].matched ? stoll(match[2].str()) : -1;
+    result.recognized = true;
+    return result;
+  } catch (const exception&) {
+    return {};
+  }
+}
 static vector<fs::path> get_sorted_entries(const string& path,
                                              list<string> allowedExtentions,
                                              int *out_num_folders) {
@@ -320,6 +367,9 @@ static vector<fs::path> get_sorted_entries(const string& path,
   string name_lower;
   fs::file_time_type modified_at;
   bool has_modified_at;
+  long long chapter_number;
+long long chapter_extra;
+bool has_chapter_number;
 };
   vector<EntryInfo> infos;
 
@@ -344,11 +394,13 @@ static vector<fs::path> get_sorted_entries(const string& path,
     transform(name_lower.begin(), name_lower.end(), name_lower.begin(), ::tolower);
     fs::file_time_type modified_at = fs::file_time_type::min();
 bool has_modified_at = false;
+    ChapterOrder chapter_order;
 
 if (!is_dir) {
   std::error_code time_error;
   modified_at = fs::last_write_time(entry.path(), time_error);
   has_modified_at = !time_error;
+  chapter_order = get_chapter_order(filename);
 }
 
 infos.push_back({
@@ -356,16 +408,30 @@ infos.push_back({
   is_dir,
   std::move(name_lower),
   modified_at,
-  has_modified_at
+  has_modified_at,
+  chapter_order.number,
+  chapter_order.extra,
+  chapter_order.recognized
 });
   }
 
   // Sort using cached values — zero stat() calls in comparator; natural sort for numbers
-  sort(infos.begin(), infos.end(), [](const EntryInfo& a, const EntryInfo& b) {
+ sort(infos.begin(), infos.end(), [](const EntryInfo& a, const EntryInfo& b) {
   if (a.is_dir != b.is_dir)
     return a.is_dir > b.is_dir;
 
   if (!a.is_dir) {
+    if (a.has_chapter_number != b.has_chapter_number)
+      return a.has_chapter_number > b.has_chapter_number;
+
+    if (a.has_chapter_number) {
+      if (a.chapter_number != b.chapter_number)
+        return a.chapter_number < b.chapter_number;
+
+      if (a.chapter_extra != b.chapter_extra)
+        return a.chapter_extra < b.chapter_extra;
+    }
+
     if (a.has_modified_at != b.has_modified_at)
       return a.has_modified_at > b.has_modified_at;
 
