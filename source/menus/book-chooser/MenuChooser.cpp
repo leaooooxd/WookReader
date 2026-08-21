@@ -346,15 +346,27 @@ static ChapterOrder get_chapter_order(const string& filename) {
       match = *current;
   }
 
-  try {
     ChapterOrder result;
-    result.number = stoll(match[1].str());
-    result.extra = match[2].matched ? stoll(match[2].str()) : -1;
-    result.recognized = true;
-    return result;
-  } catch (const exception&) {
+string number_text = match[1].str();
+char* number_end = nullptr;
+
+result.number = strtoll(number_text.c_str(), &number_end, 10);
+
+if (!number_end || *number_end != '\0')
+  return {};
+
+if (match[2].matched) {
+  string extra_text = match[2].str();
+  char* extra_end = nullptr;
+
+  result.extra = strtoll(extra_text.c_str(), &extra_end, 10);
+
+  if (!extra_end || *extra_end != '\0')
     return {};
-  }
+}
+
+result.recognized = true;
+return result;
 }
 static vector<fs::path> get_sorted_entries(const string& path,
                                              list<string> allowedExtentions,
