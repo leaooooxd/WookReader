@@ -1085,6 +1085,7 @@ void Menu_StartChoosing() {
   vector<pair<int,int>> entry_progress;  // parallel to cover_textures: (last_page, total_pages)
   vector<bool> entry_completed;
   bool dashboard_visible = false;
+  bool dashboard_progress_visible = false;
 int dashboard_height = 0;
 int dashboard_completed = 0;
 int dashboard_total = 0;
@@ -1168,6 +1169,7 @@ if (completed)
   entry_completed[i] = config_setting_get_bool(completed);
     }
     dashboard_visible = false;
+dashboard_progress_visible = false;
 dashboard_height = 0;
 dashboard_completed = 0;
 dashboard_total = numBooks;
@@ -1217,9 +1219,10 @@ if (!inRecentFolder &&
     }
   }
 
-  if (already_active) {
-    dashboard_visible = true;
-    dashboard_height = 84;
+if (numBooks > 0) {
+  dashboard_visible = true;
+  dashboard_height = 84;
+  dashboard_progress_visible = already_active;
 
     string last_key = series_key + "_LAST";
 
@@ -1933,7 +1936,10 @@ if (dashboard_visible) {
         SDL_FreeSurface(surface);
       };
 
+ if (!dashboard_last_chapter.empty())
   draw_dashboard_text(last_text, 16, 9);
+
+if (dashboard_progress_visible)
   draw_dashboard_text(progress_text, 16, 44);
 }
     // Clip content area to avoid overflowing into the bottom bar
