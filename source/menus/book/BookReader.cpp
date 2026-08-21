@@ -558,24 +558,15 @@ if (_total_pages > 0) {
         );
     }
 }
-  if (drawHelp) {
-    const int menu_width = 440;
-    const int menu_height = 190;
+ if (drawHelp) {
+    const int menu_width = 310;
+    const int menu_height = 150;
 
     const int menu_x =
         (windowX - menu_width) / 2;
 
     const int menu_y =
         (windowY - menu_height) / 2;
-
-    SDL_DrawRect(
-        RENDERER,
-        0,
-        0,
-        windowX,
-        windowY,
-        SDL_MakeColour(0, 0, 0, 150)
-    );
 
     SDL_DrawRect(
         RENDERER,
@@ -588,9 +579,9 @@ if (_total_pages > 0) {
 
     SDL_DrawText(
         RENDERER,
-        ROBOTO_30,
-        menu_x + 24,
-        menu_y + 18,
+        ROBOTO_25,
+        menu_x + 18,
+        menu_y + 12,
         WHITE,
         "Reading direction"
     );
@@ -600,23 +591,23 @@ if (_total_pages > 0) {
             readingDirectionSelection == i;
 
         const int option_y =
-            menu_y + 72 + i * 48;
+            menu_y + 56 + i * 38;
 
         if (selected) {
             SDL_DrawRect(
                 RENDERER,
-                menu_x + 16,
-                option_y - 4,
-                menu_width - 32,
-                40,
+                menu_x + 10,
+                option_y - 3,
+                menu_width - 20,
+                32,
                 SDL_MakeColour(65, 65, 65, 255)
             );
         }
 
         SDL_DrawText(
             RENDERER,
-            ROBOTO_25,
-            menu_x + 34,
+            ROBOTO_20,
+            menu_x + 22,
             option_y,
             selected
                 ? WHITE
@@ -632,7 +623,6 @@ if (_total_pages > 0) {
         );
     }
 }
-
   if (drawNotes) {
     int noteWidth = 800;
     int noteHeight = 500;
