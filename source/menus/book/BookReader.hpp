@@ -38,6 +38,7 @@ public:
     void switch_page_layout();
     void draw(bool drawHelp, bool drawNotes = false);
     void reset_nav_buttons();
+void show_chapter_notice(const std::string& text);
 
     const std::string &notes() const { return _notes; }
     void set_notes(const std::string &text);
@@ -73,6 +74,8 @@ private:
     bool _is_cbz = false;
     int  _total_pages = 0;
 int _chapter_change_request = 0;
+std::string _chapter_notice;
+uint32_t _chapter_notice_until = 0;
     std::string _notes;
 };
 
