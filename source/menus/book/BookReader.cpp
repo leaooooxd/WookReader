@@ -476,7 +476,88 @@ void BookReader::draw(bool drawHelp, bool drawNotes) {
     layout->poll_bg_render();
 
   layout->draw_page();
+if (_total_pages > 0) {
+    const bool rotated = _nav_landscape;
 
+    const int margin = 12;
+    const int thickness = 4;
+    const int edge_distance = 7;
+
+    const int available_length =
+        (rotated ? windowY : windowX) -
+        margin * 2;
+
+    const int current_page =
+        layout->current_page();
+
+    const int gap =
+        available_length / _total_pages >= 5
+            ? 2
+            : 1;
+
+    for (int i = 0; i < _total_pages; i++) {
+        const int segment_start =
+            margin +
+            (i * available_length) /
+                _total_pages;
+
+        const int segment_end =
+            margin +
+            ((i + 1) * available_length) /
+                _total_pages;
+
+        const int segment_length =
+            std::max(
+                1,
+                segment_end -
+                    segment_start -
+                    gap
+            );
+
+        SDL_Rect segment;
+
+        if (rotated) {
+            segment = {
+                edge_distance,
+                segment_start,
+                thickness,
+                segment_length
+            };
+        } else {
+            segment = {
+                segment_start,
+                windowY -
+                    edge_distance -
+                    thickness,
+                segment_length,
+                thickness
+            };
+        }
+
+        if (i <= current_page) {
+            SDL_SetRenderDrawColor(
+                RENDERER,
+                180,
+                65,
+                60,
+                255
+            );
+        } else {
+            SDL_SetRenderDrawColor(
+                RENDERER,
+                45,
+                45,
+                45,
+                255
+            );
+        }
+
+        SDL_RenderFillRect(
+            RENDERER,
+            &segment
+        );
+    }
+}
   if (drawHelp) {
     const int menu_width = 440;
     const int menu_height = 190;
