@@ -477,46 +477,80 @@ void BookReader::draw(bool drawHelp, bool drawNotes) {
 
   layout->draw_page();
 
-  if (drawHelp) {  // Help menu
-    int helpWidth = 680;
-    int helpHeight = 395;
+  if (drawHelp) {
+    const int menu_width = 440;
+    const int menu_height = 190;
 
-    if (!configDarkMode) {  // Display a dimmed background if on light mode
-      SDL_DrawRect(RENDERER, 0, 0, 1280, 720, SDL_MakeColour(50, 50, 50, 150));
+    const int menu_x =
+        (windowX - menu_width) / 2;
+
+    const int menu_y =
+        (windowY - menu_height) / 2;
+
+    SDL_DrawRect(
+        RENDERER,
+        0,
+        0,
+        windowX,
+        windowY,
+        SDL_MakeColour(0, 0, 0, 150)
+    );
+
+    SDL_DrawRect(
+        RENDERER,
+        menu_x,
+        menu_y,
+        menu_width,
+        menu_height,
+        SDL_MakeColour(20, 20, 20, 245)
+    );
+
+    SDL_DrawText(
+        RENDERER,
+        ROBOTO_30,
+        menu_x + 24,
+        menu_y + 18,
+        WHITE,
+        "Reading direction"
+    );
+
+    for (int i = 0; i < 2; i++) {
+        const bool selected =
+            readingDirectionSelection == i;
+
+        const int option_y =
+            menu_y + 72 + i * 48;
+
+        if (selected) {
+            SDL_DrawRect(
+                RENDERER,
+                menu_x + 16,
+                option_y - 4,
+                menu_width - 32,
+                40,
+                SDL_MakeColour(65, 65, 65, 255)
+            );
+        }
+
+        SDL_DrawText(
+            RENDERER,
+            ROBOTO_25,
+            menu_x + 34,
+            option_y,
+            selected
+                ? WHITE
+                : SDL_MakeColour(
+                    155,
+                    155,
+                    155,
+                    255
+                ),
+            i == 0
+                ? "Western"
+                : "Eastern"
+        );
     }
-
-    SDL_DrawRect(RENDERER, (windowX - helpWidth) / 2,
-                 (windowY - helpHeight) / 2, helpWidth, helpHeight,
-                 configDarkMode ? HINT_COLOUR_DARK : HINT_COLOUR_LIGHT);
-
-    int textX = (windowX - helpWidth) / 2 + 20;
-    int textY = (windowY - helpHeight) / 2 + 87;
-    SDL_Color textColor = configDarkMode ? WHITE : BLACK;
-    SDL_DrawText(RENDERER, ROBOTO_30, textX, (windowY - helpHeight) / 2 + 10,
-                 textColor, "Help Menu:");
-
-    SDL_DrawButtonPrompt(RENDERER, button_b, ROBOTO_25, textColor,
-                         "Stop reading / Close help menu.", textX, textY, 35,
-                         35, 5, 0);
-    SDL_DrawButtonPrompt(RENDERER, button_minus, ROBOTO_25, textColor,
-                         "Switch to dark/light theme.", textX, textY + 38, 35,
-                         35, 5, 0);
-    SDL_DrawButtonPrompt(RENDERER, right_stick_up_down, ROBOTO_25, textColor,
-                         "Zoom in/out.", textX, textY + 38 * 2, 35, 35, 5, 0);
-    SDL_DrawButtonPrompt(RENDERER, left_stick_up_down, ROBOTO_25, textColor,
-                         "Page up/down.", textX, textY + 38 * 3, 35, 35, 5, 0);
-    SDL_DrawButtonPrompt(RENDERER, button_y, ROBOTO_25, textColor,
-                         "Change page layout.", textX, textY + 38 * 4, 35, 35, 5, 0);
-    SDL_DrawButtonPrompt(RENDERER, button_x, ROBOTO_25, textColor,
-                         "Keep status bar on.", textX, textY + 38 * 5, 35, 35,
-                         5, 0);
-    SDL_DrawButtonPrompt(RENDERER, button_lt, ROBOTO_25, textColor,
-                         "Previous page.", textX, textY + 38 * 6, 35, 35, 5, 0);
-    SDL_DrawButtonPrompt(RENDERER, button_rt, ROBOTO_25, textColor,
-                         "Next page.", textX, textY + 38 * 7, 35, 35, 5, 0);
-    SDL_DrawButtonPrompt(RENDERER, button_a, ROBOTO_25, textColor,
-                         "Jump to page.", textX, textY + 38 * 8, 35, 35, 5, 0);
-  }
+}
 
   if (drawNotes) {
     int noteWidth = 800;
