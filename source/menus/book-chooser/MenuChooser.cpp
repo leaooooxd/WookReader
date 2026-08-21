@@ -468,6 +468,42 @@ infos.push_back({
     entries.push_back(std::move(info.p));
   return entries;
 }
+std::string Menu_GetAdjacentBook(const std::string& current_path,
+                                 int direction) {
+  if (direction != 1 && direction != -1)
+    return "";
+
+  fs::path current(current_path);
+  std::string folder = current.parent_path().string();
+
+  list<string> allowed_extensions = {
+      ".pdf", ".epub", ".cbz", ".cbr",
+      ".cbt", ".cb7", ".xps", "directory"
+  };
+
+  int folders = 0;
+
+  vector<fs::path> entries =
+      get_sorted_entries(folder, allowed_extensions, &folders);
+
+  for (int i = folders; i < (int)entries.size(); i++) {
+    if (entries[i] != current)
+      continue;
+
+    int adjacent = i + direction;
+
+    if (adjacent < folders || adjacent >= (int)entries.size())
+      return "";
+
+    return entries[adjacent].string();
+  }
+
+  return "";
+}
+
+void Menu_RecordRecentBook(const std::string& path) {
+  update_recent(path);
+}
 
 // ── Cover thumbnail loading ───────────────────────────────────────────────────
 
