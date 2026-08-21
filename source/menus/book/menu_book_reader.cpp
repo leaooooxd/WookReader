@@ -177,29 +177,44 @@ void Menu_OpenBook(char *path, int scroll_speed, float zoom_amount)
                     float tx = touch_start_x, ty = touch_start_y;
 
                     if (!nav_land)
-                    {
-                        if (tx > 1000 && ty > 200 && ty < 500)
-                        {
-                            if (configMangaMode)
-                                reader->previous_page(1);
-                            else
-                                reader->next_page(1);
-                        }
-                        else if (tx < 280 && ty > 200 && ty < 500)
-                        {
-                            if (configMangaMode)
-                                reader->next_page(1);
-                            else
-                                reader->previous_page(1);
-                        }
-                    }
-                    else
-                    {
-                        if (ty < 150)
-                            reader->previous_page(1);
-                        else if (ty > 570)
-                            reader->next_page(1);
-                    }
+{
+    if (tx > 1000 && ty > 200 && ty < 500)
+    {
+        if (configMangaMode)
+            reader->previous_page(1);
+        else
+            reader->next_page(1);
+    }
+    else if (tx < 280 && ty > 200 && ty < 500)
+    {
+        if (configMangaMode)
+            reader->next_page(1);
+        else
+            reader->previous_page(1);
+    }
+}
+else
+{
+    if (ty < 150)
+    {
+        if (configMangaMode)
+            reader->next_page(1);
+        else
+            reader->previous_page(1);
+    }
+    else if (ty > 570)
+    {
+        if (configMangaMode)
+            reader->previous_page(1);
+        else
+            reader->next_page(1);
+    }
+}
+
+                       
+                        
+                    
+                    
                 }
             }
         }
