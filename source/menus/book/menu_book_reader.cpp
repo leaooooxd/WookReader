@@ -15,9 +15,14 @@ extern "C"
 
 extern void Log_Write(const std::string &msg);
 extern void Log_Error(const std::string &msg);
+extern std::string Menu_GetAdjacentBook(const std::string& current_path,
+                                         int direction);
+
+extern void Menu_RecordRecentBook(const std::string& path);
 
 void Menu_OpenBook(char *path, int scroll_speed, float zoom_amount)
 {
+    std::string current_book_path = path;
     BookReader *reader = NULL;
     int result = 0;
 
@@ -472,6 +477,53 @@ else
         {
             helpMenu = !helpMenu;
         }
+        int chapter_request = reader->takeChapterChangeRequest();
+
+if (chapter_request != 0)
+{
+    std::string adjacent_book =
+        Menu_GetAdjacentBook(current_book_path, chapter_request);
+
+    if (!adjacent_book.empty())
+    {
+        BookPageLayout previous_layout =
+            reader->currentPageLayout();
+
+        bool previous_nav_landscape =
+            reader->navLandscape();
+
+        delete reader;
+
+        result = 0;
+
+        reader = new BookReader(adjacent_book.c_str(), &result);
+
+        if (result < 0)
+        {
+            Log_Error("Failed to open adjacent chapter: " +
+                      adjacent_book);
+            break;
+        }
+
+        for (int attempt = 0;
+             attempt < 3 &&
+             reader->currentPageLayout() != previous_layout;
+             attempt++)
+        {
+            reader->switch_page_layout();
+        }
+
+        if (reader->navLandscape() != previous_nav_landscape)
+            reader->switch_page_layout();
+
+        current_book_path = adjacent_book;
+
+        Menu_RecordRecentBook(current_book_path);
+
+        Log_Write("NEETREADER CHAPTER CHANGE path=" +
+                  current_book_path);
+    }
+}
 
         /*if (touchInfo.state == TouchEnded && touchInfo.tapType != TapNone) {
             float tapRegion = 120;
