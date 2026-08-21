@@ -601,13 +601,8 @@ if (chapter_request != 0)
 
         if (reader->navLandscape() != previous_nav_landscape)
             reader->switch_page_layout();
-if (
-    chapter_request < 0 &&
-    reader->totalPages() > 0
-) {
-    reader->goto_page(
-        reader->totalPages()
-    );
+if (chapter_request < 0) {
+    reader->openOnLastPage();
 }
         current_book_path = adjacent_book;
 
