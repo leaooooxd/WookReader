@@ -1053,6 +1053,7 @@ void Menu_StartChoosing() {
     }
     int numBooks = (int)sorted_entries.size() - numFolders;
     entry_progress.assign(numBooks, {0, 0});
+    entry_completed.assign(numBooks, false);
     for (int i = 0; i < numBooks; i++) {
       string key = chooser_sanitize(sorted_entries[numFolders + i].string());
       int last = 0, total = 0;
@@ -1064,6 +1065,14 @@ void Menu_StartChoosing() {
           config_setting_get_member(config_root_setting(config), tkey.c_str());
       if (st) total = config_setting_get_int(st);
       entry_progress[i] = {last, total};
+      string completed_key = key + "_C";
+
+config_setting_t* completed =
+    config_setting_get_member(config_root_setting(config),
+                              completed_key.c_str());
+
+if (completed)
+  entry_completed[i] = config_setting_get_bool(completed);
     }
   };
 
