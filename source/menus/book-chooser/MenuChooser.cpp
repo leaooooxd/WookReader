@@ -604,8 +604,11 @@ static int load_config(unsigned int* chosenFolderColor,
     *chosenBookColor = std::clamp(config_setting_get_int(book), 0, COLORS_SIZE);
     *scroll_speed = std::clamp(config_setting_get_int(scroll), 1, 4);
     *zoom_amount = std::clamp(config_setting_get_int(zoom), 1, 4);
-    *configDarkMode = config_setting_get_bool(dark);
   }
+
+  *configDarkMode = true;
+  if (dark)
+    config_setting_set_bool(dark, true);
 
   config_setting_t* scrbtn =
       config_setting_get_member(config_root_setting(optionConfig), "ScreenButtons");
@@ -2163,20 +2166,9 @@ for (int i = 0; i < numFolders; i++) {
   while (appletMainLoop()) {
     SDL_TextCache_NextFrame();
     SDL_PumpEvents();  // drain SDL's internal event queue to prevent HID interference
-    SDL_Color textColor =
-    configDarkMode
-        ? UI_TEXT
-        : SDL_Color{34, 34, 38, 255};
-
-SDL_Color backColor =
-    configDarkMode
-        ? UI_BACKGROUND
-        : BACK_WHITE;
-
-SDL_Color selectorColor =
-    configDarkMode
-        ? UI_SELECTION
-        : SELECTOR_COLOUR_LIGHT;
+    SDL_Color textColor = UI_TEXT;
+    SDL_Color backColor = UI_BACKGROUND;
+    SDL_Color selectorColor = UI_SELECTION;
     SDL_ClearScreen(RENDERER, backColor);
     SDL_RenderClear(RENDERER);
 
@@ -2445,10 +2437,6 @@ SDL_Color selectorColor =
           update_scroll();
         }
       }
-    }
-
-    if (kUp & HidNpadButton_Minus) {
-      configDarkMode = !configDarkMode;
     }
 
     // ── Y: notes for selected book ────────────────────────────────────────────
@@ -2743,7 +2731,10 @@ if (folder_cards_view) {
       SDL_DrawText(RENDERER, ROBOTO_15, 44, windowY - 42,
                    UI_TEXT_MUTED, breadcrumb.c_str());
 
-      const char* actions = "+  Settings       -  Theme       B  Back";
+      const char* actions =
+          path == "/switch/WookReader"
+              ? "+  Settings       B  Exit"
+              : "+  Settings       B  Back";
       int actions_width = 0;
       TTF_SizeUTF8(ROBOTO_15, actions, &actions_width, nullptr);
       SDL_DrawText(RENDERER, ROBOTO_15,
