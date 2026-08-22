@@ -2613,7 +2613,7 @@ series_name.resize(last);
                card_x + (folder_card_width - label_width) / 2,
                card_y + image_height + 10,
                textColor,
-series_name.c_str()
+               series_name.c_str());
 
   if (chosen_index == i) {
     SDL_SetRenderDrawColor(RENDERER,
