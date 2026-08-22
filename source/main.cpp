@@ -26,7 +26,8 @@ extern "C" {
 }
 #include <mupdf/fitz.h>
 
-// ===== ЛОГИРОВАНИЕ =====
+// Application log. Keep the existing SD-card location for compatibility with
+// the user's books, reading progress, and preferences.
 #define LOG_FILE "/switch/WookReader/log.txt"
 
 std::ofstream logFile;
@@ -34,7 +35,7 @@ std::ofstream logFile;
 void Log_Init() {
   logFile.open(LOG_FILE, std::ios::out | std::ios::trunc);
   if (logFile.is_open()) {
-    logFile << "=== WookReader Log Started ===" << std::endl;
+    logFile << "=== NeetReader Log Started ===" << std::endl;
     logFile.flush();
   }
 }
@@ -55,13 +56,12 @@ void Log_Error(const std::string& msg) {
 
 void Log_Close() {
   if (logFile.is_open()) {
-    logFile << "=== WookReader Log Ended ===" << std::endl;
+    logFile << "=== NeetReader Log Ended ===" << std::endl;
     logFile.close();
   }
 }
-// ===== КОНЕЦ ЛОГИРОВАНИЯ =====
-
-// ===== STACK TRACE + TERMINATE HANDLER =====
+// Stack traces make unexpected termination actionable without changing the
+// normal startup or rendering paths.
 extern "C" void _start(void);
 
 struct BtState {
@@ -98,36 +98,41 @@ static void terminate_handler() {
   Log_Close();
   exit(1);
 }
-// ===== КОНЕЦ TERMINATE HANDLER =====
-
-fz_context* ctx = NULL;
+fz_context* ctx = nullptr;
 bool timeInitialized = false;
 bool psmInitialized = false;
 bool nifmInitialized = false;
 
-SDL_Renderer* RENDERER;
-SDL_Window* WINDOW;
+SDL_Renderer* RENDERER = nullptr;
+SDL_Window* WINDOW = nullptr;
 SDL_Event EVENT;
-TTF_Font *ROBOTO_35, *ROBOTO_30, *ROBOTO_27, *ROBOTO_25, *ROBOTO_20, *ROBOTO_15;
-bool configDarkMode;
+TTF_Font* ROBOTO_35 = nullptr;
+TTF_Font* ROBOTO_30 = nullptr;
+TTF_Font* ROBOTO_27 = nullptr;
+TTF_Font* ROBOTO_25 = nullptr;
+TTF_Font* ROBOTO_20 = nullptr;
+TTF_Font* ROBOTO_15 = nullptr;
+bool configDarkMode = true;
 bool configScreenButtons = false;
 bool configStatusBar = true;
 bool configMangaMode = false;
 
 void Term_Services() {
-  Log_Write("Terminate Services");
+  Log_Write("Shutting down NeetReader");
+
   if (nifmInitialized) {
     nifmExit();
     nifmInitialized = false;
-}
+  }
 
-if (psmInitialized) {
+  if (psmInitialized) {
     psmExit();
     psmInitialized = false;
-}
+  }
 
   if (timeInitialized) {
     timeExit();
+    timeInitialized = false;
   }
   SDL_TextCache_Clear();  // must be before TTF_CloseFont
   TTF_CloseFont(ROBOTO_35);
@@ -140,7 +145,7 @@ if (psmInitialized) {
 
   if (ctx) {
     fz_drop_context(ctx);
-    ctx = NULL;
+    ctx = nullptr;
   }
 
   Textures_Free();
@@ -164,9 +169,7 @@ bool Init_Services() {
   twiliInitialize();
 #endif
 
-  // Однократная миграция: если /switch/eBookReader существует, а
-  // /switch/WookReader ещё нет — переименовываем папку целиком (books, configs,
-  // logs переезжают вместе).
+  // Preserve the original one-time migration and existing WookReader data path.
   {
     struct stat st_old, st_new;
     bool old_exists =
@@ -177,10 +180,9 @@ bool Init_Services() {
       rename("/switch/eBookReader", "/switch/WookReader");
   }
 
-  // Сначала создаём папку и открываем лог
   FS_RecursiveMakeDir("/switch/WookReader");
   Log_Init();
-  Log_Write("Initialize Services");
+  Log_Write("Starting NeetReader");
 
   romfsInit();
   Log_Write("Initialized RomFs");
@@ -192,18 +194,26 @@ bool Init_Services() {
   }
   Log_Write("Initialized SDL");
 
-  timeInitialize();
-  timeInitialized = true;
-  Log_Write("Initialized Time");
+  if (R_SUCCEEDED(timeInitialize())) {
+    timeInitialized = true;
+    Log_Write("Initialized clock service");
+  } else {
+    Log_Error("Clock service unavailable");
+  }
+
   if (R_SUCCEEDED(psmInitialize())) {
     psmInitialized = true;
     Log_Write("Initialized battery service");
-}
+  } else {
+    Log_Error("Battery service unavailable");
+  }
 
-if (R_SUCCEEDED(nifmInitialize(NifmServiceType_User))) {
+  if (R_SUCCEEDED(nifmInitialize(NifmServiceType_User))) {
     nifmInitialized = true;
     Log_Write("Initialized network service");
-}
+  } else {
+    Log_Error("Network service unavailable");
+  }
 
   if (SDL_CreateWindowAndRenderer(1280, 720, 0, &WINDOW, &RENDERER) == -1) {
     Log_Error(std::string("SDL_CreateWindowAndRenderer failed: ") +
@@ -211,6 +221,7 @@ if (R_SUCCEEDED(nifmInitialize(NifmServiceType_User))) {
     Term_Services();
     return false;
   }
+  SDL_SetWindowTitle(WINDOW, "NeetReader");
   Log_Write("Initialized Window and Renderer");
 
   SDL_SetRenderDrawBlendMode(RENDERER, SDL_BLENDMODE_BLEND);
@@ -236,19 +247,32 @@ if (R_SUCCEEDED(nifmInitialize(NifmServiceType_User))) {
   Textures_Load();
   Log_Write("Loaded Textures");
 
-ROBOTO_35 = TTF_OpenFont("romfs:/resources/font/Geist-Medium.otf", 32);
-ROBOTO_30 = TTF_OpenFont("romfs:/resources/font/Geist-Medium.otf", 28);
-ROBOTO_27 = TTF_OpenFont("romfs:/resources/font/Geist-Medium.otf", 25);
-ROBOTO_25 = TTF_OpenFont("romfs:/resources/font/Geist-Regular.otf", 23);
-ROBOTO_20 = TTF_OpenFont("romfs:/resources/font/Geist-Regular.otf", 19);
-ROBOTO_15 = TTF_OpenFont("romfs:/resources/font/Geist-Regular.otf", 15);
+  const char* medium_font = "romfs:/resources/font/Geist-Medium.otf";
+  const char* regular_font = "romfs:/resources/font/Geist-Regular.otf";
+
+  ROBOTO_35 = TTF_OpenFont(medium_font, 32);
+  ROBOTO_30 = TTF_OpenFont(medium_font, 28);
+  ROBOTO_27 = TTF_OpenFont(medium_font, 25);
+  ROBOTO_25 = TTF_OpenFont(regular_font, 23);
+  ROBOTO_20 = TTF_OpenFont(regular_font, 19);
+  ROBOTO_15 = TTF_OpenFont(regular_font, 15);
+
   if (!ROBOTO_35 || !ROBOTO_30 || !ROBOTO_27 || !ROBOTO_25 || !ROBOTO_20 ||
       !ROBOTO_15) {
-    Log_Error("Failed to load fonts");
+    Log_Error(std::string("Failed to load Geist interface fonts: ") +
+              TTF_GetError());
     Term_Services();
     return false;
   }
-  Log_Write("Retrieved Fonts");
+
+  TTF_Font* interface_fonts[] = {
+      ROBOTO_35, ROBOTO_30, ROBOTO_27,
+      ROBOTO_25, ROBOTO_20, ROBOTO_15};
+  for (TTF_Font* font : interface_fonts) {
+    TTF_SetFontHinting(font, TTF_HINTING_LIGHT);
+    TTF_SetFontKerning(font, 1);
+  }
+  Log_Write("Initialized Geist interface fonts");
 
   for (int i = 0; i < 2; i++) {
     if (SDL_JoystickOpen(i) == NULL) {
@@ -262,9 +286,7 @@ ROBOTO_15 = TTF_OpenFont("romfs:/resources/font/Geist-Regular.otf", 15);
   FS_RecursiveMakeDir("/switch/WookReader/books");
   Log_Write("Created book directory if needed");
 
-  configDarkMode = true;
-
-  Log_Write("All services initialized successfully!");
+  Log_Write("NeetReader initialization complete");
   return true;
 }
 
