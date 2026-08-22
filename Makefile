@@ -28,10 +28,10 @@ VERSION_MAJOR := 0
 VERSION_MINOR := 0
 VERSION_MICRO := 7
 
-APP_TITLE   := WookReader
-APP_AUTHOR  := exorevan
+APP_TITLE   := NeetReader
+APP_AUTHOR  := leaoooxd
 APP_VERSION := ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_MICRO}-local
-ICON := icon.jpg
+ICON := NeetReader-icon-256.jpg
 
 #---------------------------------------------------------------------------------
 # options for code generation
