@@ -83,6 +83,16 @@ void Menu_OpenBook(char *path, int scroll_speed, float zoom_amount)
     int   touch_prev_count = 0;
     float touch_start_x    = 0.0f, touch_start_y = 0.0f;
     bool  touch_dragging   = false;
+    uint32_t touch_start_time = 0;
+
+    // Touch navigation is intentionally limited to short taps at the physical
+    // screen edges. Any drag is reserved exclusively for inspecting/panning
+    // the zoomed page.
+    const float TOUCH_DRAG_THRESHOLD = 18.0f;
+    const uint32_t EDGE_TAP_MAX_MS = 350;
+    const float EDGE_TAP_RATIO = 0.10f;
+    const float SCREEN_WIDTH = 1280.0f;
+    const float SCREEN_HEIGHT = 720.0f;
 
     bool helpMenu = false;
     bool notesMenu = false;
@@ -125,6 +135,7 @@ void Menu_OpenBook(char *path, int scroll_speed, float zoom_amount)
                     touch_start_x  = cx;
                     touch_start_y  = cy;
                     touch_dragging = false;
+                    touch_start_time = SDL_GetTicks();
                 }
                 else if (touch_prev_count == 1)
                 {
@@ -132,7 +143,7 @@ void Menu_OpenBook(char *path, int scroll_speed, float zoom_amount)
                     float dy    = cy - touch_prev_y0;
                     float moved = sqrtf((cx - touch_start_x) * (cx - touch_start_x) +
                                        (cy - touch_start_y) * (cy - touch_start_y));
-                    if (moved > 18.0f)
+                    if (moved > TOUCH_DRAG_THRESHOLD)
                         touch_dragging = true;
 
                     if (touch_dragging)
@@ -178,73 +189,53 @@ void Menu_OpenBook(char *path, int scroll_speed, float zoom_amount)
             {
                 float dx_total = touch_prev_x0 - touch_start_x;
                 float dy_total = touch_prev_y0 - touch_start_y;
-                float adx = fabsf(dx_total), ady = fabsf(dy_total);
-                const float SWIPE_THRESH = 180.0f;
-                bool did_swipe = false;
-
+                float moved = sqrtf(dx_total * dx_total + dy_total * dy_total);
+                uint32_t touch_duration = SDL_GetTicks() - touch_start_time;
                 bool nav_land = reader->navLandscape();
 
-                // Horizontal swipe → page nav when buttons are left/right
-                if (touch_dragging && adx > SWIPE_THRESH && adx > ady * 1.5f && !nav_land)
+                // Never turn a page after dragging or holding. Page turns are
+                // accepted only for short, stationary taps at a physical edge.
+                if (!touch_dragging &&
+                    moved <= TOUCH_DRAG_THRESHOLD &&
+                    touch_duration <= EDGE_TAP_MAX_MS)
                 {
-                    if (dx_total < 0) reader->next_page(1);
-                    else              reader->previous_page(1);
-                    reader->reset_nav_buttons();
-                    did_swipe = true;
-                }
-                // Vertical swipe → page nav when buttons are top/bottom
-                else if (touch_dragging && ady > SWIPE_THRESH && ady > adx * 1.5f && nav_land)
-                {
-                    if (dy_total < 0) reader->previous_page(1);
-                    else              reader->next_page(1);
-                    reader->reset_nav_buttons();
-                    did_swipe = true;
-                }
-
-                if (!did_swipe && !touch_dragging)
-                {
-                    // Finger lifted without drag → tap: zone-based navigation
                     float tx = touch_start_x, ty = touch_start_y;
+                    bool tapped_visual_left = false;
+                    bool tapped_visual_right = false;
 
                     if (!nav_land)
-{
-    if (tx > 1000 && ty > 200 && ty < 500)
-    {
-        if (configMangaMode)
-            reader->previous_page(1);
-        else
-            reader->next_page(1);
-    }
-    else if (tx < 280 && ty > 200 && ty < 500)
-    {
-        if (configMangaMode)
-            reader->next_page(1);
-        else
-            reader->previous_page(1);
-    }
-}
-else
-{
-    if (ty < 150)
-    {
-        if (configMangaMode)
-            reader->next_page(1);
-        else
-            reader->previous_page(1);
-    }
-    else if (ty > 570)
-    {
-        if (configMangaMode)
-            reader->previous_page(1);
-        else
-            reader->next_page(1);
-    }
-}
+                    {
+                        tapped_visual_left =
+                            tx <= SCREEN_WIDTH * EDGE_TAP_RATIO;
+                        tapped_visual_right =
+                            tx >= SCREEN_WIDTH * (1.0f - EDGE_TAP_RATIO);
+                    }
+                    else
+                    {
+                        // When the page is rotated, its visual left/right edges
+                        // correspond to the physical top/bottom touch coordinates.
+                        tapped_visual_left =
+                            ty <= SCREEN_HEIGHT * EDGE_TAP_RATIO;
+                        tapped_visual_right =
+                            ty >= SCREEN_HEIGHT * (1.0f - EDGE_TAP_RATIO);
+                    }
 
-                       
-                        
-                    
-                    
+                    if (tapped_visual_left)
+                    {
+                        if (configMangaMode)
+                            reader->next_page(1);
+                        else
+                            reader->previous_page(1);
+                        reader->reset_nav_buttons();
+                    }
+                    else if (tapped_visual_right)
+                    {
+                        if (configMangaMode)
+                            reader->previous_page(1);
+                        else
+                            reader->next_page(1);
+                        reader->reset_nav_buttons();
+                    }
                 }
             }
         }
