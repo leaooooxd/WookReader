@@ -911,249 +911,99 @@ void Menu_RecordRecentBook(const std::string& path) {
 
 // ── Cover thumbnail loading ───────────────────────────────────────────────────
 static SDL_Texture* load_series_cover(const fs::path& folder_path) {
-    fs::path cover_path = folder_path / "cover.png";
-    std::error_code ec;
+  static const char* names[] = {
+      "cover.png", "cover.jpg", "cover.jpeg", "cover.webp", "cover.bmp"
+  };
 
-    if (!fs::exists(cover_path, ec) || ec) {
-        Log_Error(
-            "SERIES COVER nao encontrada: " +
-            cover_path.string()
-        );
-
-        return nullptr;
-    }
-  static string load_series_author(
-    const fs::path& folder_path
-) {
-    fs::path metadata_path =
-        folder_path / "series.cfg";
-
+  for (const char* name : names) {
+    fs::path cover_path = folder_path / name;
     std::error_code error;
+    if (!fs::exists(cover_path, error) || error)
+      continue;
 
-    if (
-        !fs::exists(metadata_path, error) ||
-        error
-    ) {
-        return "";
-    }
-    static void draw_rounded_cover(
-    SDL_Texture* texture,
-    const SDL_Rect* source,
-    SDL_Rect destination,
-    int radius,
-    SDL_Color background
-) {
-    if (
-        !texture ||
-        destination.w <= 0 ||
-        destination.h <= 0
-    ) {
-        return;
-    }
+    SDL_Texture* texture = IMG_LoadTexture(RENDERER, cover_path.string().c_str());
+    if (texture)
+      return texture;
 
-  draw_rounded_cover(
-    cover,
-    &source,
-    destination,
-    14,
-    UI_BACKGROUND
-);
-    );
-      static void draw_navigation_header(
-    const string& current_path
-) {
-    const bool is_home =
-        current_path ==
-        "/switch/WookReader";
+    Log_Error(string("SERIES COVER load failed: ") + IMG_GetError() +
+              " path=" + cover_path.string());
+  }
 
-    const bool is_library =
-        current_path ==
-        "/switch/WookReader/books";
-
-    if (
-        !is_home &&
-        !is_library
-    ) {
-        return;
-    }
-
-    SDL_DrawText(
-        RENDERER,
-        ROBOTO_15,
-        64,
-        30,
-        UI_TEXT_MUTED,
-        "NEETREADER"
-    );
-
-    SDL_DrawText(
-        RENDERER,
-        ROBOTO_30,
-        64,
-        62,
-        UI_TEXT,
-        is_home
-            ? "Pick up where you left off or explore your library"
-            : "Your library"
-    );
-
-    if (is_library) {
-        SDL_DrawText(
-            RENDERER,
-            ROBOTO_15,
-            64,
-            101,
-            UI_TEXT_MUTED,
-            "Select a series to start reading"
-        );
-    }
+  return nullptr;
 }
 
-    radius = min(
-        radius,
-        min(
-            destination.w / 2,
-            destination.h / 2
-        )
-    );
+static string load_series_author(const fs::path& folder_path) {
+  fs::path metadata_path = folder_path / "series.cfg";
+  std::error_code error;
+  if (!fs::exists(metadata_path, error) || error)
+    return "";
 
-    SDL_SetRenderDrawColor(
-        RENDERER,
-        background.r,
-        background.g,
-        background.b,
-        background.a
-    );
-
-    for (
-        int row = 0;
-        row < radius;
-        row++
-    ) {
-        float distance =
-            radius - row - 0.5f;
-
-        int inset =
-            radius -
-            (int)sqrt(
-                radius * radius -
-                distance * distance
-            );
-
-        if (inset <= 0) {
-            continue;
-        }
-
-        int top_y =
-            destination.y + row;
-
-        int bottom_y =
-            destination.y +
-            destination.h -
-            row -
-            1;
-
-        SDL_RenderDrawLine(
-            RENDERER,
-            destination.x,
-            top_y,
-            destination.x + inset - 1,
-            top_y
-        );
-
-        SDL_RenderDrawLine(
-            RENDERER,
-            destination.x +
-                destination.w -
-                inset,
-            top_y,
-            destination.x +
-                destination.w -
-                1,
-            top_y
-        );
-
-        SDL_RenderDrawLine(
-            RENDERER,
-            destination.x,
-            bottom_y,
-            destination.x + inset - 1,
-            bottom_y
-        );
-
-        SDL_RenderDrawLine(
-            RENDERER,
-            destination.x +
-                destination.w -
-                inset,
-            bottom_y,
-            destination.x +
-                destination.w -
-                1,
-            bottom_y
-        );
-    }
-}
-
-    config_t metadata;
-
-    config_init(&metadata);
-
-    if (
-        !config_read_file(
-            &metadata,
-            metadata_path.string().c_str()
-        )
-    ) {
-        config_destroy(&metadata);
-
-        return "";
-    }
-
-    const char* author = nullptr;
-
-    string result;
-
-    if (
-        config_lookup_string(
-            &metadata,
-            "author",
-            &author
-        ) &&
-        author
-    ) {
-        result = author;
-    }
-
+  config_t metadata;
+  config_init(&metadata);
+  if (!config_read_file(&metadata, metadata_path.string().c_str())) {
     config_destroy(&metadata);
+    return "";
+  }
 
-    return result;
+  const char* author = nullptr;
+  string result;
+  if (config_lookup_string(&metadata, "author", &author) && author)
+    result = author;
+
+  config_destroy(&metadata);
+  return result;
 }
 
-    SDL_Texture* texture =
-        IMG_LoadTexture(
-            RENDERER,
-            cover_path.string().c_str()
-        );
+static void draw_rounded_cover(SDL_Texture* texture, const SDL_Rect* source,
+                               SDL_Rect destination, int radius,
+                               SDL_Color background) {
+  if (!texture || destination.w <= 0 || destination.h <= 0)
+    return;
 
-    if (!texture) {
-        Log_Error(
-            std::string("SERIES COVER erro: ") +
-            IMG_GetError() +
-            " path=" +
-            cover_path.string()
-        );
+  SDL_RenderCopy(RENDERER, texture, source, &destination);
+  radius = min(radius, min(destination.w / 2, destination.h / 2));
 
-        return nullptr;
-    }
+  SDL_SetRenderDrawBlendMode(RENDERER, SDL_BLENDMODE_NONE);
+  SDL_SetRenderDrawColor(RENDERER, background.r, background.g,
+                         background.b, background.a);
 
-    Log_Write(
-        "SERIES COVER carregada: " +
-        cover_path.string()
-    );
+  for (int row = 0; row < radius; row++) {
+    const float distance = radius - row - 0.5f;
+    const int inset = radius - (int)sqrt(radius * radius - distance * distance);
+    if (inset <= 0)
+      continue;
 
-    return texture;
+    const int top_y = destination.y + row;
+    const int bottom_y = destination.y + destination.h - row - 1;
+    const int right_x = destination.x + destination.w;
+
+    SDL_RenderDrawLine(RENDERER, destination.x, top_y,
+                       destination.x + inset - 1, top_y);
+    SDL_RenderDrawLine(RENDERER, right_x - inset, top_y,
+                       right_x - 1, top_y);
+    SDL_RenderDrawLine(RENDERER, destination.x, bottom_y,
+                       destination.x + inset - 1, bottom_y);
+    SDL_RenderDrawLine(RENDERER, right_x - inset, bottom_y,
+                       right_x - 1, bottom_y);
+  }
 }
+
+static void draw_navigation_header(const string& current_path) {
+  const bool is_home = current_path == "/switch/WookReader";
+  const bool is_library = current_path == "/switch/WookReader/books";
+  if (!is_home && !is_library)
+    return;
+
+  SDL_DrawText(RENDERER, ROBOTO_15, 64, 29, UI_TEXT_MUTED, "NEETREADER");
+  SDL_DrawText(RENDERER, ROBOTO_30, 64, 65, UI_TEXT,
+               is_home ? "Pick up where you left off or explore your library"
+                       : "Your library");
+
+  if (is_library)
+    SDL_DrawText(RENDERER, ROBOTO_15, 64, 104, UI_TEXT_MUTED,
+                 "Choose a series to start reading");
+}
+
 static SDL_Texture* load_books_mosaic() {
     const int mosaic_width = 400;
     const int mosaic_height = 600;
@@ -1907,13 +1757,6 @@ void Menu_StartChoosing() {
   int scroll_option = 1;
   int zoom_option   = 1;
 
-  string colors[] = {
-      "Adwaita", "Black",      "Blue_Grey",   "Blue",      "Breeze",
-      "Brown",   "Carmine",    "Cyan",        "Dark_Cyan", "Deep_Orange",
-      "Green",   "Grey",       "Indigo",      "Magenta",   "Nordic",
-      "Orange",  "Pale_Brown", "Pale_Orange", "Pink",      "Red",
-      "Teal",    "Violet",     "White",       "Yaru",      "Yellow"};
-
   load_config(&chosenFolderColor, &chosenBookColor, &scroll_option,
               &zoom_option, &configDarkMode);
 
@@ -1931,14 +1774,12 @@ void Menu_StartChoosing() {
 
   bool drawOption  = false;
   int  option_index   = 0;
-  int  amountOfOptions = 7;
+  int  amountOfOptions = 5;
 
   string path = "/switch/WookReader";
 
   int windowX, windowY;
   SDL_GetWindowSize(WINDOW, &windowX, &windowY);
-  int warningWidth  = 700;
-  int warningHeight = 300;
 
   // ── Dynamic grid dimensions (ZL = zoom out / ZR = zoom in) ──────────────────
   int cols    = 5;
@@ -2218,13 +2059,14 @@ folder_cards_view =
       rows * folder_card_height +
       (rows - 1) * folder_card_gap;
 
-  int available_height =
-      windowY - BOTTOM_H;
+  const int navigation_header_height = 126;
+  int available_height = windowY - BOTTOM_H - navigation_header_height;
 
   folder_card_start_y =
-      grid_height < available_height
-          ? (available_height - grid_height) / 2
-          : 20;
+      navigation_header_height +
+      (grid_height < available_height
+           ? (available_height - grid_height) / 2
+           : 16);
 
   folder_cover_textures.resize(numFolders, nullptr);
 
@@ -2383,33 +2225,24 @@ SDL_Color selectorColor =
     if (kDown & HidNpadButton_A && drawOption) {
       switch (option_index) {
         case 0:
-          chosenFolderColor = (chosenFolderColor < COLORS_SIZE)
-                                  ? chosenFolderColor + 1 : 0;
-          folder_image = folder_textures[chosenFolderColor];
+          scroll_option = (scroll_option < 4) ? scroll_option + 1 : 1;
+          scroll_speed = SCROLL * scroll_option;
           break;
         case 1:
-          chosenBookColor = (chosenBookColor < COLORS_SIZE)
-                                ? chosenBookColor + 1 : 0;
-          book_image = book_textures[chosenBookColor];
+          zoom_option = (zoom_option < 4) ? zoom_option + 1 : 1;
+          zoom_amount = ZOOM * zoom_option;
           break;
         case 2:
-          scroll_option = (scroll_option < 4) ? scroll_option + 1 : 1;
-          scroll_speed  = SCROLL * scroll_option;
-          break;
-        case 3:
-          zoom_option  = (zoom_option < 4) ? zoom_option + 1 : 1;
-          zoom_amount  = ZOOM * zoom_option;
-          break;
-        case 4:
-          configScreenButtons = !configScreenButtons;
-          break;
-        case 5:
-          configStatusBar = !configStatusBar;
-          break;
-        case 6:
           configMangaMode = !configMangaMode;
           break;
-        default: break;
+        case 3:
+          configScreenButtons = !configScreenButtons;
+          break;
+        case 4:
+          configStatusBar = !configStatusBar;
+          break;
+        default:
+          break;
       }
     }
 
@@ -2531,35 +2364,26 @@ SDL_Color selectorColor =
     if (kDown & HidNpadButton_Right) {
       if (drawOption) {
         switch (option_index) {
-          case 0:
-            chosenFolderColor = (chosenFolderColor < COLORS_SIZE)
-                                    ? chosenFolderColor + 1 : 0;
-            folder_image = folder_textures[chosenFolderColor];
-            break;
-          case 1:
-            chosenBookColor = (chosenBookColor < COLORS_SIZE)
-                                  ? chosenBookColor + 1 : 0;
-            book_image = book_textures[chosenBookColor];
-            break;
-          case 2:
-            scroll_option = (scroll_option < 4) ? scroll_option + 1 : 1;
-            scroll_speed  = SCROLL * scroll_option;
-            break;
-          case 3:
-            zoom_option  = (zoom_option < 4) ? zoom_option + 1 : 1;
-            zoom_amount  = ZOOM * zoom_option;
-            break;
-          case 4:
-            configScreenButtons = !configScreenButtons;
-            break;
-          case 5:
-            configStatusBar = !configStatusBar;
-            break;
-          case 6:
-            configMangaMode = !configMangaMode;
-            break;
-          default: break;
-        }
+        case 0:
+          scroll_option = (scroll_option < 4) ? scroll_option + 1 : 1;
+          scroll_speed = SCROLL * scroll_option;
+          break;
+        case 1:
+          zoom_option = (zoom_option < 4) ? zoom_option + 1 : 1;
+          zoom_amount = ZOOM * zoom_option;
+          break;
+        case 2:
+          configMangaMode = !configMangaMode;
+          break;
+        case 3:
+          configScreenButtons = !configScreenButtons;
+          break;
+        case 4:
+          configStatusBar = !configStatusBar;
+          break;
+        default:
+          break;
+      }
      } else if (!isWarningOnScreen &&
            folder_cards_view &&
            numFolders > 0) {
@@ -2582,35 +2406,26 @@ SDL_Color selectorColor =
     if (kDown & HidNpadButton_Left) {
       if (drawOption) {
         switch (option_index) {
-          case 0:
-            chosenFolderColor = (chosenFolderColor > 0)
-                                    ? chosenFolderColor - 1 : COLORS_SIZE;
-            folder_image = folder_textures[chosenFolderColor];
-            break;
-          case 1:
-            chosenBookColor = (chosenBookColor > 0)
-                                  ? chosenBookColor - 1 : COLORS_SIZE;
-            book_image = book_textures[chosenBookColor];
-            break;
-          case 2:
-            scroll_option = (scroll_option > 1) ? scroll_option - 1 : 4;
-            scroll_speed  = SCROLL * scroll_option;
-            break;
-          case 3:
-            zoom_option = (zoom_option > 1) ? zoom_option - 1 : 4;
-            zoom_amount = ZOOM * zoom_option;
-            break;
-          case 4:
-            configScreenButtons = !configScreenButtons;
-            break;
-          case 5:
-            configStatusBar = !configStatusBar;
-            break;
-          case 6:
-            configMangaMode = !configMangaMode;
-            break;
-          default: break;
-        }
+        case 0:
+          scroll_option = (scroll_option > 1) ? scroll_option - 1 : 4;
+          scroll_speed = SCROLL * scroll_option;
+          break;
+        case 1:
+          zoom_option = (zoom_option > 1) ? zoom_option - 1 : 4;
+          zoom_amount = ZOOM * zoom_option;
+          break;
+        case 2:
+          configMangaMode = !configMangaMode;
+          break;
+        case 3:
+          configScreenButtons = !configScreenButtons;
+          break;
+        case 4:
+          configStatusBar = !configStatusBar;
+          break;
+        default:
+          break;
+      }
       } else if (!isWarningOnScreen &&
            folder_cards_view &&
            numFolders > 0) {
@@ -2904,26 +2719,38 @@ if (folder_cards_view) {
     // Reset clip rect from previous frame before drawing bottom bar
     SDL_RenderSetClipRect(RENDERER, NULL);
 
-    // Bottom bar (always visible, drawn first so content clips over it)
+    // Persistent navigation footer.
     {
-      int exitWidth = 0;
-      TTF_SizeText(ROBOTO_20, "Exit", &exitWidth, NULL);
-      SDL_DrawButtonPrompt(RENDERER, button_b, ROBOTO_20, textColor, "Exit",
-                           windowX - exitWidth - 50, windowY - 10, 35, 35, 5, 0);
+      SDL_SetRenderDrawBlendMode(RENDERER, SDL_BLENDMODE_NONE);
+      SDL_SetRenderDrawColor(RENDERER, UI_BACKGROUND.r, UI_BACKGROUND.g,
+                             UI_BACKGROUND.b, UI_BACKGROUND.a);
+      SDL_Rect footer_background = {0, windowY - BOTTOM_H, windowX, BOTTOM_H};
+      SDL_RenderFillRect(RENDERER, &footer_background);
 
-      int themeWidth = 0;
-      TTF_SizeText(ROBOTO_20, "Switch Theme", &themeWidth, NULL);
-      SDL_DrawButtonPrompt(RENDERER, button_minus, ROBOTO_20, textColor,
-                           "Switch Theme", windowX - themeWidth - 50,
-                           windowY - 40, 35, 35, 5, 0);
-      SDL_DrawButtonPrompt(RENDERER, button_plus, ROBOTO_20, textColor,
-                           "Options Menu", windowX - themeWidth - 50,
-                           windowY - 70, 35, 35, 5, 0);
+      SDL_SetRenderDrawColor(RENDERER, UI_BORDER.r, UI_BORDER.g,
+                             UI_BORDER.b, UI_BORDER.a);
+      SDL_RenderDrawLine(RENDERER, 40, windowY - BOTTOM_H,
+                         windowX - 40, windowY - BOTTOM_H);
 
-      string display_path = path.size() > 18 ? path.substr(18) : "";
-      SDL_DrawText(RENDERER, ROBOTO_25, 10, windowY - 40, textColor,
-                   display_path.c_str());
+      string breadcrumb;
+      if (path == "/switch/WookReader")
+        breadcrumb = "Home";
+      else if (path == "/switch/WookReader/books")
+        breadcrumb = "Library";
+      else
+        breadcrumb = "Library  /  " + fs::path(path).filename().string();
+
+      SDL_DrawText(RENDERER, ROBOTO_15, 44, windowY - 42,
+                   UI_TEXT_MUTED, breadcrumb.c_str());
+
+      const char* actions = "+  Settings       -  Theme       B  Back";
+      int actions_width = 0;
+      TTF_SizeUTF8(ROBOTO_15, actions, &actions_width, nullptr);
+      SDL_DrawText(RENDERER, ROBOTO_15,
+                   windowX - actions_width - 44, windowY - 42,
+                   UI_TEXT_MUTED, actions);
     }
+
 if (dashboard_visible) {
   SDL_SetRenderDrawBlendMode(RENDERER, SDL_BLENDMODE_NONE);
   SDL_SetRenderDrawColor(RENDERER, 0, 0, 0, 255);
@@ -2942,18 +2769,19 @@ if (dashboard_visible) {
           ? (dashboard_completed * 100) / dashboard_total
           : 0;
 
-  string last_text =
-      "Último capítulo: " + dashboard_last_chapter;
+  string last_text = "Last chapter:";
+  if (!dashboard_last_chapter.empty())
+    last_text += " " + dashboard_last_chapter;
 
- string progress_text = "Progresso:";
+  string progress_text = "Progress:";
 
 if (dashboard_progress_visible) {
   progress_text +=
       " " +
       to_string(dashboard_completed) +
-      " de " +
+      " of " +
       to_string(dashboard_total) +
-      " capítulos — " +
+      " chapters  ·  " +
       to_string(percentage) +
       "%";
 }
@@ -2965,7 +2793,7 @@ if (dashboard_progress_visible) {
                &text_width,
                nullptr);
 
-  while (text_width > windowX - 32 &&
+  while (text_width > windowX - 245 &&
          !last_text.empty()) {
     last_text.pop_back();
 
@@ -2976,7 +2804,7 @@ if (dashboard_progress_visible) {
                  &text_width,
                  nullptr);
 
-    if (text_width <= windowX - 32) {
+    if (text_width <= windowX - 245) {
       last_text = shortened;
       break;
     }
@@ -3017,8 +2845,8 @@ if (dashboard_progress_visible) {
         SDL_FreeSurface(surface);
       };
 
-draw_dashboard_text(last_text, 16, 9);
-draw_dashboard_text(progress_text, 16, 44);
+draw_dashboard_text(last_text, 28, 12);
+draw_dashboard_text(progress_text, 28, 45);
 }
     // Clip content area to avoid overflowing into the bottom bar
    SDL_Rect clip = {
@@ -3051,17 +2879,18 @@ draw_dashboard_text(progress_text, 16, 44);
   int image_height =
       folder_card_height - 44;
 
-  SDL_SetRenderDrawBlendMode(RENDERER, SDL_BLENDMODE_NONE);
-  SDL_SetRenderDrawColor(RENDERER, 0, 0, 0, 255);
+  if (chosen_index == i) {
+    SDL_Rect focus_outline = {
+        card_x - 3, card_y - 3,
+        folder_card_width + 6, folder_card_height + 6
+    };
+    draw_rounded_rect(RENDERER, focus_outline, 17, UI_ACCENT);
+  }
 
   SDL_Rect card_background = {
-      card_x,
-      card_y,
-      folder_card_width,
-      folder_card_height
+      card_x, card_y, folder_card_width, folder_card_height
   };
-
-  SDL_RenderFillRect(RENDERER, &card_background);
+  draw_rounded_rect(RENDERER, card_background, 14, UI_SURFACE);
 
   SDL_Texture* cover =
       i < (int)folder_cover_textures.size()
@@ -3116,12 +2945,7 @@ draw_dashboard_text(progress_text, 16, 44);
         image_height
     };
 
-    SDL_RenderCopy(
-        RENDERER,
-        cover,
-        &source,
-        &destination
-    );
+    draw_rounded_cover(cover, &source, destination, 13, UI_SURFACE);
 } else {
     SDL_DrawImageScale(RENDERER,
                        folder_image,
@@ -3223,25 +3047,6 @@ if (!series_author.empty()) {
     );
 }
 
-  if (chosen_index == i) {
-    SDL_SetRenderDrawColor(RENDERER,
-                           255,
-                           255,
-                           255,
-                           255);
-
-    for (int border = 0; border < 3; border++) {
-      SDL_Rect selection = {
-          card_x + border,
-          card_y + border,
-          folder_card_width - border * 2,
-          folder_card_height - border * 2
-      };
-
-      SDL_RenderDrawRect(RENDERER, &selection);
-    }
-  }
-
   continue;
 }
       int row_y =
@@ -3253,14 +3058,13 @@ if (!series_author.empty()) {
 
       SDL_DrawImageScale(RENDERER, folder_image, 8, row_y + 4, 32, 32);
       if (sorted_entries[i].string() == RECENT_SENTINEL) {
-        SDL_Color recentColor = {0, 180, 220, 255};
         SDL_DrawText(RENDERER, ROBOTO_25, 48, row_y + (FOLDER_H - 22) / 2,
-                     recentColor, "Ultimo lido");
+                     UI_ACCENT, "Continue reading");
      } else {
   string folder_name = sorted_entries[i].filename().string();
 
   if (path == "/switch/WookReader" && folder_name == "books")
-    folder_name = "Books/Mangas";
+    folder_name = "Library";
 
   SDL_DrawText(RENDERER, ROBOTO_25, 48, row_y + (FOLDER_H - 22) / 2,
                textColor, folder_name.c_str());
@@ -3372,8 +3176,9 @@ if (!series_author.empty()) {
       // Selection highlight — 3px bright border drawn over cover + strip
       if (chosen_index == numFolders + bi) {
         SDL_SetRenderDrawBlendMode(RENDERER, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(RENDERER, 255, 255, 255, 220);
-        for (int t = 0; t < 3; t++) {
+        SDL_SetRenderDrawColor(RENDERER, UI_ACCENT.r, UI_ACCENT.g,
+                               UI_ACCENT.b, 235);
+        for (int t = 0; t < 2; t++) {
           SDL_Rect border = { cell_x + t, cell_y + t, cell_w - 2*t, cell_h - 2*t };
           SDL_RenderDrawRect(RENDERER, &border);
         }
@@ -3407,133 +3212,139 @@ if (!series_author.empty()) {
 draw_navigation_header(path);
    draw_system_status(windowX);
 
-   SDL_RenderPresent(RENDERER);  // clear clip
-
     // ── Modal overlays ────────────────────────────────────────────────────────
 
     if (isWarningOnScreen) {
-      if (!configDarkMode)
-        SDL_DrawRect(RENDERER, 0, 0, 1280, 720, SDL_MakeColour(50, 50, 50, 150));
+      SDL_DrawRect(RENDERER, 0, 0, windowX, windowY,
+                   SDL_MakeColour(0, 0, 0, 165));
 
-      SDL_DrawRect(RENDERER, (windowX - warningWidth) / 2,
-                   (windowY - warningHeight) / 2, warningWidth, warningHeight,
-                   configDarkMode ? HINT_COLOUR_DARK : HINT_COLOUR_LIGHT);
-      SDL_DrawText(RENDERER, ROBOTO_30,
-                   (windowX - warningWidth) / 2 + 15,
-                   (windowY - warningHeight) / 2 + 15, textColor,
-                   "This file is not yet fully supported, and may");
-      SDL_DrawText(RENDERER, ROBOTO_30,
-                   (windowX - warningWidth) / 2 + 15,
-                   (windowY - warningHeight) / 2 + 50, textColor,
-                   "cause a system, or app crash.");
-      SDL_DrawText(RENDERER, ROBOTO_20,
-                   (windowX - warningWidth) / 2 + warningWidth - 250,
-                   (windowY - warningHeight) / 2 + warningHeight - 30,
-                   textColor, "\"A\" - Read");
-      SDL_DrawText(RENDERER, ROBOTO_20,
-                   (windowX - warningWidth) / 2 + warningWidth - 125,
-                   (windowY - warningHeight) / 2 + warningHeight - 30,
-                   textColor, "\"B\" - Cancel.");
+      const int modal_width = 600;
+      const int modal_height = 232;
+      const int modal_x = (windowX - modal_width) / 2;
+      const int modal_y = (windowY - modal_height) / 2;
+      SDL_Rect modal = {modal_x, modal_y, modal_width, modal_height};
+      draw_rounded_rect(RENDERER, modal, 18, UI_SURFACE_ELEVATED);
+
+      SDL_DrawText(RENDERER, ROBOTO_27, modal_x + 30, modal_y + 27,
+                   UI_TEXT, "Unsupported file format");
+      SDL_DrawText(RENDERER, ROBOTO_20, modal_x + 30, modal_y + 81,
+                   UI_TEXT_MUTED, "This file may not work correctly.");
+      SDL_DrawText(RENDERER, ROBOTO_20, modal_x + 30, modal_y + 112,
+                   UI_TEXT_MUTED, "Open it only if you want to continue anyway.");
+      SDL_DrawText(RENDERER, ROBOTO_15, modal_x + 30, modal_y + 183,
+                   UI_TEXT_MUTED, "A  Open anyway       B  Cancel");
     }
 
     if (drawOption) {
-      int helpWidth  = 680;
-      int helpHeight = 395;
+      SDL_DrawRect(RENDERER, 0, 0, windowX, windowY,
+                   SDL_MakeColour(0, 0, 0, 175));
 
-      if (!configDarkMode)
-        SDL_DrawRect(RENDERER, 0, 0, 1280, 720, SDL_MakeColour(50, 50, 50, 150));
+      const int modal_width = 620;
+      const int modal_height = 454;
+      const int modal_x = (windowX - modal_width) / 2;
+      const int modal_y = (windowY - modal_height) / 2;
+      SDL_Rect modal = {modal_x, modal_y, modal_width, modal_height};
+      draw_rounded_rect(RENDERER, modal, 20, UI_SURFACE_ELEVATED);
 
-      SDL_DrawRect(RENDERER, (windowX - helpWidth) / 2,
-                   (windowY - helpHeight) / 2, helpWidth, helpHeight,
-                   configDarkMode ? HINT_COLOUR_DARK : HINT_COLOUR_LIGHT);
+      SDL_DrawText(RENDERER, ROBOTO_30, modal_x + 32, modal_y + 26,
+                   UI_TEXT, "Settings");
+      SDL_DrawText(RENDERER, ROBOTO_15, modal_x + 33, modal_y + 65,
+                   UI_TEXT_MUTED, "Customize your reading experience");
 
-      int optTextX = (windowX - helpWidth) / 2 + 20;
-      int optTextY = (windowY - helpHeight) / 2 + 87;
+      SDL_DrawText(RENDERER, ROBOTO_15, modal_x + 33, modal_y + 111,
+                   UI_TEXT_MUTED, "READING");
+      SDL_DrawText(RENDERER, ROBOTO_15, modal_x + 33, modal_y + 278,
+                   UI_TEXT_MUTED, "DISPLAY");
 
-      SDL_DrawRect(
-          RENDERER, optTextX - 20, optTextY + (38 * option_index),
-          helpWidth, 40,
-          configDarkMode ? SELECTOR_COLOUR_DARK : SELECTOR_COLOUR_LIGHT);
+      const char* labels[] = {
+          "Scroll speed", "Zoom amount", "Reading direction",
+          "On-screen controls", "Status bar"
+      };
+      string values[] = {
+          to_string(scroll_option),
+          to_string(zoom_option),
+          configMangaMode ? "Eastern" : "Western",
+          configScreenButtons ? "On" : "Off",
+          configStatusBar ? "On" : "Off"
+      };
+      const int row_positions[] = {138, 182, 226, 302, 346};
 
-      SDL_DrawText(RENDERER, ROBOTO_30, optTextX,
-                   (windowY - helpHeight) / 2 + 10, textColor, "Option Menu");
+      for (int i = 0; i < amountOfOptions; i++) {
+        const int row_y = modal_y + row_positions[i];
+        if (i == option_index) {
+          SDL_Rect selection = {modal_x + 18, row_y - 7,
+                                modal_width - 36, 38};
+          draw_rounded_rect(RENDERER, selection, 9, UI_SELECTION);
+          SDL_Rect accent = {modal_x + 22, row_y - 2, 3, 28};
+          draw_rounded_rect(RENDERER, accent, 1, UI_ACCENT);
+        }
 
-      SDL_DrawText(RENDERER, ROBOTO_25, optTextX, optTextY, textColor,
-                   "Folder Color: ");
-      SDL_DrawText(RENDERER, ROBOTO_25, optTextX + 400, optTextY, textColor,
-                   colors[chosenFolderColor].c_str());
+        SDL_DrawText(RENDERER, ROBOTO_20, modal_x + 36, row_y,
+                     i == option_index ? UI_TEXT : UI_TEXT_MUTED,
+                     labels[i]);
 
-      SDL_DrawText(RENDERER, ROBOTO_25, optTextX, optTextY + 38, textColor,
-                   "Book Color: ");
-      SDL_DrawText(RENDERER, ROBOTO_25, optTextX + 400, optTextY + 38,
-                   textColor, colors[chosenBookColor].c_str());
+        int value_width = 0;
+        TTF_SizeUTF8(ROBOTO_20, values[i].c_str(), &value_width, nullptr);
+        SDL_DrawText(RENDERER, ROBOTO_20,
+                     modal_x + modal_width - value_width - 34, row_y,
+                     i == option_index ? UI_TEXT : UI_TEXT_MUTED,
+                     values[i].c_str());
+      }
 
-      SDL_DrawText(RENDERER, ROBOTO_25, optTextX, optTextY + 38 * 2,
-                   textColor, "Scroll Speed: ");
-      SDL_DrawTextf(RENDERER, ROBOTO_25, optTextX + 400, optTextY + 38 * 2,
-                    textColor, "%d", scroll_option);
-
-      SDL_DrawText(RENDERER, ROBOTO_25, optTextX, optTextY + 38 * 3,
-                   textColor, "Zoom Amount: ");
-      SDL_DrawTextf(RENDERER, ROBOTO_25, optTextX + 400, optTextY + 38 * 3,
-                    textColor, "%d", zoom_option);
-
-      SDL_DrawText(RENDERER, ROBOTO_25, optTextX, optTextY + 38 * 4,
-                   textColor, "Screen Buttons: ");
-      SDL_DrawText(RENDERER, ROBOTO_25, optTextX + 400, optTextY + 38 * 4,
-                   textColor, configScreenButtons ? "On" : "Off");
-
-      SDL_DrawText(RENDERER, ROBOTO_25, optTextX, optTextY + 38 * 5,
-                   textColor, "Status Bar: ");
-      SDL_DrawText(RENDERER, ROBOTO_25, optTextX + 400, optTextY + 38 * 5,
-                   textColor, configStatusBar ? "On" : "Off");
-
-      SDL_DrawText(RENDERER, ROBOTO_25, optTextX, optTextY + 38 * 6,
-                   textColor, "Reading Direction: ");
-      SDL_DrawText(RENDERER, ROBOTO_25, optTextX + 400, optTextY + 38 * 6,
-                   textColor, configMangaMode ? "Eastern" : "Western");
+      SDL_DrawText(RENDERER, ROBOTO_15, modal_x + 34, modal_y + 418,
+                   UI_TEXT_MUTED, "A  Change       Left / Right  Adjust       B  Close");
     }
 
     // ── Notes overlay ─────────────────────────────────────────────────────────
     if (drawNotesChooser) {
-      int noteWidth  = 800;
-      int noteHeight = 500;
+      SDL_DrawRect(RENDERER, 0, 0, windowX, windowY,
+                   SDL_MakeColour(0, 0, 0, 175));
 
-      if (!configDarkMode)
-        SDL_DrawRect(RENDERER, 0, 0, 1280, 720, SDL_MakeColour(50, 50, 50, 150));
+      const int note_width = 760;
+      const int note_height = 448;
+      const int note_x = (windowX - note_width) / 2;
+      const int note_y = (windowY - note_height) / 2;
+      SDL_Rect modal = {note_x, note_y, note_width, note_height};
+      draw_rounded_rect(RENDERER, modal, 20, UI_SURFACE_ELEVATED);
 
-      SDL_DrawRect(RENDERER, (windowX - noteWidth) / 2,
-                   (windowY - noteHeight) / 2, noteWidth, noteHeight,
-                   configDarkMode ? HINT_COLOUR_DARK : HINT_COLOUR_LIGHT);
-
-      int nTextX = (windowX - noteWidth) / 2 + 20;
-      int nTextY = (windowY - noteHeight) / 2 + 10;
-
-      // Title: comic filename (no extension)
-      string noteFname = notesChooserPath.substr(notesChooserPath.find_last_of("/\\") + 1);
-      size_t dot = noteFname.find_last_of('.');
-      if (dot != string::npos) noteFname = noteFname.substr(0, dot);
-      SDL_DrawText(RENDERER, ROBOTO_25, nTextX, nTextY, textColor, noteFname.c_str());
-      SDL_DrawText(RENDERER, ROBOTO_20, nTextX, nTextY + 30, textColor, "Notes:");
-
-      // Hint at bottom
-      int hintY = (windowY + noteHeight) / 2 - 35;
-      if (ROBOTO_15)
-        SDL_DrawText(RENDERER, ROBOTO_15, nTextX, hintY, textColor,
-                     "A = Edit    B / Y = Close");
-
-      // Note body
-      int bodyY    = nTextY + 65;
-      int bodyMaxH = hintY - bodyY - 10;
-      if (notesChooserText.empty()) {
-        if (ROBOTO_25)
-          SDL_DrawText(RENDERER, ROBOTO_25, nTextX, bodyY,
-                       DARK_GRAY, "No notes yet. Press A to add one.");
-      } else if (ROBOTO_20) {
-        SDL_DrawTextWrapped(RENDERER, ROBOTO_20, nTextX, bodyY,
-                            noteWidth - 40, bodyMaxH, textColor,
-                            notesChooserText.c_str());
+      string chapter_name = fs::path(notesChooserPath).stem().string();
+      int chapter_width = 0;
+      TTF_SizeUTF8(ROBOTO_20, chapter_name.c_str(), &chapter_width, nullptr);
+      while (chapter_width > note_width - 68 && !chapter_name.empty()) {
+        chapter_name.pop_back();
+        string shortened = chapter_name + "...";
+        TTF_SizeUTF8(ROBOTO_20, shortened.c_str(), &chapter_width, nullptr);
+        if (chapter_width <= note_width - 68) {
+          chapter_name = shortened;
+          break;
+        }
       }
+
+      SDL_DrawText(RENDERER, ROBOTO_30, note_x + 32, note_y + 25,
+                   UI_TEXT, "Chapter notes");
+      SDL_DrawText(RENDERER, ROBOTO_20, note_x + 33, note_y + 69,
+                   UI_TEXT_MUTED, chapter_name.c_str());
+
+      SDL_SetRenderDrawColor(RENDERER, UI_BORDER.r, UI_BORDER.g,
+                             UI_BORDER.b, UI_BORDER.a);
+      SDL_RenderDrawLine(RENDERER, note_x + 32, note_y + 110,
+                         note_x + note_width - 32, note_y + 110);
+
+      const int body_y = note_y + 134;
+      const int actions_y = note_y + note_height - 40;
+      if (notesChooserText.empty()) {
+        SDL_DrawText(RENDERER, ROBOTO_20, note_x + 34, body_y,
+                     UI_TEXT_MUTED, "No notes yet.");
+        SDL_DrawText(RENDERER, ROBOTO_15, note_x + 35, body_y + 35,
+                     UI_TEXT_MUTED, "Press A to write something about this chapter.");
+      } else {
+        SDL_DrawTextWrapped(RENDERER, ROBOTO_20, note_x + 34, body_y,
+                            note_width - 68, actions_y - body_y - 18,
+                            UI_TEXT, notesChooserText.c_str());
+      }
+
+      SDL_DrawText(RENDERER, ROBOTO_15, note_x + 34, actions_y,
+                   UI_TEXT_MUTED, "A  Edit note       B / Y  Close");
     }
 
     SDL_RenderPresent(RENDERER);
@@ -3550,7 +3361,14 @@ draw_navigation_header(path);
     if (cl[w].result_pixels) { free(cl[w].result_pixels); cl[w].result_pixels = nullptr; }
   }
 
-  // Cleanup — cache owns all textures; clear it here before SDL shuts down
+  // Release owned series-card textures before shutting down the renderer.
+  for (SDL_Texture* texture : folder_cover_textures) {
+    if (texture)
+      SDL_DestroyTexture(texture);
+  }
+  folder_cover_textures.clear();
+
+  // Chapter cover textures are owned by the shared cache.
   cover_textures.clear();
   g_cover_cache.clear();
 
