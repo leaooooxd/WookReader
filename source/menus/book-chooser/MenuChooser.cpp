@@ -1762,7 +1762,9 @@ for (int i = 0; i < numFolders; i++) {
   while (appletMainLoop()) {
     SDL_TextCache_NextFrame();
     SDL_PumpEvents();  // drain SDL's internal event queue to prevent HID interference
-    SDL_Color textColor    = configDarkMode ? WHITE : BLACK;
+    SDL_Color textColor = configDarkMode
+    ? SDL_Color{232, 232, 237, 255}
+    : SDL_Color{34, 34, 38, 255};
     SDL_Color backColor    = configDarkMode ? BACK_BLACK : BACK_WHITE;
     SDL_Color selectorColor = configDarkMode ? SELECTOR_COLOUR_DARK
                                              : SELECTOR_COLOUR_LIGHT;
@@ -2417,9 +2419,11 @@ if (dashboard_progress_visible) {
   auto draw_dashboard_text =
       [&](const string& text, int x, int y) {
         SDL_Surface* surface =
-            TTF_RenderUTF8_Blended(ROBOTO_25,
-                                   text.c_str(),
-                                   WHITE);
+            TTF_RenderUTF8_Blended(
+    ROBOTO_20,
+    text.c_str(),
+    SDL_Color{205, 205, 215, 255}
+);
 
         if (!surface)
           return;
@@ -2573,18 +2577,27 @@ if (path == "/switch/WookReader") {
 
   int label_width = 0;
 
-  TTF_SizeText(ROBOTO_20,
+  TTF_SizeUTF8(ROBOTO_20,
                series_name.c_str(),
                &label_width,
                nullptr);
 
   while (label_width > folder_card_width - 16 &&
          !series_name.empty()) {
-    series_name.pop_back();
+    size_t last = series_name.size() - 1;
+
+while (
+    last > 0 &&
+    (static_cast<unsigned char>(series_name[last]) & 0xC0) == 0x80
+) {
+    last--;
+}
+
+series_name.resize(last);
 
     string shortened = series_name + "...";
 
-    TTF_SizeText(ROBOTO_20,
+    TTF_SizeUTF8(ROBOTO_20,
                  shortened.c_str(),
                  &label_width,
                  nullptr);
@@ -2599,8 +2612,8 @@ if (path == "/switch/WookReader") {
                ROBOTO_20,
                card_x + (folder_card_width - label_width) / 2,
                card_y + image_height + 10,
-               WHITE,
-               series_name.c_str());
+               textColor,
+series_name.c_str()
 
   if (chosen_index == i) {
     SDL_SetRenderDrawColor(RENDERER,
