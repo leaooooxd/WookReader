@@ -71,7 +71,7 @@ void Menu_OpenBook(char *path, int scroll_speed, float zoom_amount)
     }
 
     Log_Write("NEETREADER OPEN mode=" +
-              std::string(configMangaMode ? "Oriental" : "Western") +
+              std::string(configMangaMode ? "Eastern" : "Western") +
               " path=" + std::string(path));
 
     /*TouchInfo touchInfo;
@@ -176,7 +176,6 @@ void Menu_OpenBook(char *path, int scroll_speed, float zoom_amount)
             }
             else if (state.count == 0 && touch_prev_count == 1)
             {
-                BookPageLayout layout   = reader->currentPageLayout();
                 float dx_total = touch_prev_x0 - touch_start_x;
                 float dy_total = touch_prev_y0 - touch_start_y;
                 float adx = fabsf(dx_total), ady = fabsf(dy_total);
@@ -184,15 +183,6 @@ void Menu_OpenBook(char *path, int scroll_speed, float zoom_amount)
                 bool did_swipe = false;
 
                 bool nav_land = reader->navLandscape();
-                Log_Write("NEETREADER TOUCH mode=" +
-          std::string(configMangaMode ? "Oriental" : "Western") +
-          " layout=" + std::to_string(static_cast<int>(layout)) +
-          " nav_land=" + std::to_string(static_cast<int>(nav_land)) +
-          " dragging=" + std::to_string(static_cast<int>(touch_dragging)) +
-          " x=" + std::to_string(touch_start_x) +
-          " y=" + std::to_string(touch_start_y) +
-          " dx=" + std::to_string(dx_total) +
-          " dy=" + std::to_string(dy_total));
 
                 // Horizontal swipe → page nav when buttons are left/right
                 if (touch_dragging && adx > SWIPE_THRESH && adx > ady * 1.5f && !nav_land)
@@ -541,7 +531,8 @@ if (helpMenu) {
                 reader->goto_page(atoi(buf));
         }
 
-        if ((!helpMenu && !notesMenu && kDown & HidNpadButton_StickL) || kDown & HidNpadButton_StickR)
+        if (!helpMenu && !notesMenu &&
+            (kDown & (HidNpadButton_StickL | HidNpadButton_StickR)))
         {
             reader->reset_page();
         }
@@ -607,10 +598,10 @@ if (chapter_request < 0) {
         current_book_path = adjacent_book;
 
         Menu_RecordRecentBook(current_book_path);
-      reader->show_chapter_notice(
-    chapter_request > 0
-        ? "Próximo capítulo"
-        : "Capítulo anterior");
+        reader->show_chapter_notice(
+            chapter_request > 0
+                ? "Next chapter"
+                : "Previous chapter");
 
         Log_Write("NEETREADER CHAPTER CHANGE path=" +
                   current_book_path);
