@@ -599,12 +599,11 @@ if (page_completed) {
     );
 
     SDL_DrawText(
-        RENDERER,
-        ROBOTO_25,
-        menu_x + 18,
-        menu_y + 12,
-        WHITE,
-        "Reading direction"
+       ROBOTO_27,
+menu_x + 18,
+menu_y + 12,
+SDL_Color{232, 232, 237, 255},
+"Reading direction"
     );
 
     for (int i = 0; i < 2; i++) {
@@ -625,23 +624,18 @@ if (page_completed) {
             );
         }
 
-        SDL_DrawText(
-            RENDERER,
-            ROBOTO_20,
-            menu_x + 22,
-            option_y,
-            selected
-                ? WHITE
-                : SDL_MakeColour(
-                    155,
-                    155,
-                    155,
-                    255
-                ),
-            i == 0
-                ? "Western"
-                : "Eastern"
-        );
+       SDL_DrawText(
+    RENDERER,
+    selected ? ROBOTO_25 : ROBOTO_20,
+    menu_x + 22,
+    option_y,
+    selected
+        ? SDL_MakeColour(232, 232, 237, 255)
+        : SDL_MakeColour(150, 150, 160, 255),
+    i == 0
+        ? "Western"
+        : "Eastern"
+);
     }
 }
   if (drawNotes) {
@@ -761,9 +755,11 @@ if (page_completed) {
 if (!_chapter_notice.empty() &&
     SDL_GetTicks() < _chapter_notice_until) {
   SDL_Surface* notice_surface =
-      TTF_RenderUTF8_Blended(ROBOTO_30,
-                             _chapter_notice.c_str(),
-                             WHITE);
+      TTF_RenderUTF8_Blended(
+    ROBOTO_27,
+    _chapter_notice.c_str(),
+    SDL_Color{232, 232, 237, 255}
+);
 
   if (notice_surface) {
     int text_width = notice_surface->w;
