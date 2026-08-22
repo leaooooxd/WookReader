@@ -537,12 +537,6 @@ if (helpMenu) {
             reader->reset_page();
         }
 
-        if (!helpMenu && !notesMenu && kUp & HidNpadButton_Minus)
-        {
-            configDarkMode = !configDarkMode;
-            reader->previous_page(0);
-        }
-
         if (!notesMenu && kDown & HidNpadButton_Plus)
 {
     helpMenu = !helpMenu;

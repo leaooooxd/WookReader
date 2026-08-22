@@ -73,6 +73,18 @@ static void draw_rounded_rect(SDL_Renderer* renderer, SDL_Rect rectangle,
   SDL_SetRenderDrawBlendMode(renderer, previous_blend);
 }
 
+static void draw_reader_backdrop(unsigned char opacity) {
+  SDL_BlendMode previous_blend = SDL_BLENDMODE_NONE;
+  SDL_GetRenderDrawBlendMode(RENDERER, &previous_blend);
+  SDL_SetRenderDrawBlendMode(RENDERER, SDL_BLENDMODE_BLEND);
+  SDL_SetRenderDrawColor(RENDERER, 0, 0, 0, opacity);
+
+  SDL_Rect backdrop = {0, 0, windowX, windowY};
+  SDL_RenderFillRect(RENDERER, &backdrop);
+
+  SDL_SetRenderDrawBlendMode(RENDERER, previous_blend);
+}
+
 static void draw_centered_reader_message(const char* title,
                                          const char* detail = nullptr) {
   const int panel_width = 520;
@@ -478,11 +490,7 @@ void BookReader::switch_page_layout() {
 }
 
 void BookReader::draw(bool drawHelp, bool drawNotes) {
-  if (configDarkMode == true) {
-    SDL_ClearScreen(RENDERER, BLACK);
-  } else {
-    SDL_ClearScreen(RENDERER, WHITE);
-  }
+  SDL_ClearScreen(RENDERER, BLACK);
 
   SDL_RenderClear(RENDERER);
 
@@ -645,8 +653,7 @@ if (page_completed) {
     const int menu_y =
         (windowY - menu_height) / 2;
 
-    SDL_DrawRect(RENDERER, 0, 0, windowX, windowY,
-                 SDL_MakeColour(0, 0, 0, 112));
+    draw_reader_backdrop(84);
 
     SDL_Rect menu = {menu_x, menu_y, menu_width, menu_height};
     draw_rounded_rect(RENDERER, menu, 18, UI_SURFACE_ELEVATED);
@@ -699,8 +706,7 @@ if (page_completed) {
     const int noteX = (windowX - noteWidth) / 2;
     const int noteY = (windowY - noteHeight) / 2;
 
-    SDL_DrawRect(RENDERER, 0, 0, windowX, windowY,
-                 SDL_MakeColour(0, 0, 0, 175));
+    draw_reader_backdrop(145);
 
     SDL_Rect notePanel = {noteX, noteY, noteWidth, noteHeight};
     draw_rounded_rect(RENDERER, notePanel, 20, UI_SURFACE_ELEVATED);
