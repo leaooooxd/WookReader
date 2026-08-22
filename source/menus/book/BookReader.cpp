@@ -598,13 +598,14 @@ if (page_completed) {
         SDL_MakeColour(20, 20, 20, 245)
     );
 
-    SDL_DrawText(
-       ROBOTO_27,
-menu_x + 18,
-menu_y + 12,
-SDL_Color{232, 232, 237, 255},
-"Reading direction"
-    );
+   SDL_DrawText(
+    RENDERER,
+    ROBOTO_27,
+    menu_x + 18,
+    menu_y + 12,
+    SDL_Color{232, 232, 237, 255},
+    "Reading direction"
+);
 
     for (int i = 0; i < 2; i++) {
         const bool selected =
