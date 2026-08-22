@@ -2499,13 +2499,60 @@ draw_dashboard_text(progress_text, 16, 44);
           : nullptr;
 
   if (cover) {
-    SDL_DrawImageScale(RENDERER,
-                       cover,
-                       card_x,
-                       card_y,
-                       folder_card_width,
-                       image_height);
-  } else {
+    int source_width = 0;
+    int source_height = 0;
+
+    SDL_QueryTexture(
+        cover,
+        nullptr,
+        nullptr,
+        &source_width,
+        &source_height
+    );
+
+    SDL_Rect source = {
+        0,
+        0,
+        source_width,
+        source_height
+    };
+
+    const float source_ratio =
+        (float)source_width /
+        (float)source_height;
+
+    const float target_ratio =
+        (float)folder_card_width /
+        (float)image_height;
+
+    if (source_ratio > target_ratio) {
+        source.w =
+            (int)(source_height * target_ratio);
+
+        source.x =
+            (source_width - source.w) / 2;
+    } else {
+        source.h =
+            (int)(source_width / target_ratio);
+
+        source.y =
+            (source_height - source.h) / 2;
+    }
+
+    SDL_Rect destination = {
+        card_x,
+        card_y,
+        folder_card_width,
+        image_height
+    };
+
+    SDL_RenderCopy(
+        RENDERER,
+        cover,
+        &source,
+        &destination
+    );
+} else {
     SDL_DrawImageScale(RENDERER,
                        folder_image,
                        card_x + (folder_card_width - 64) / 2,
