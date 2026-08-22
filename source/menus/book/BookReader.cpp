@@ -3,6 +3,7 @@
 #include <libconfig.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <iostream>
 
@@ -28,6 +29,73 @@ config_t* config = NULL;
 const char* configFile = "/switch/WookReader/saved_pages.cfg";
 
 static const char* NOTES_DIR = "/switch/WookReader/.notes";
+
+// Reader UI palette. These elements deliberately stay independent from the
+// chooser's system-status header: an open page remains distraction-free.
+static const SDL_Color UI_SURFACE_ELEVATED = {30, 30, 34, 250};
+static const SDL_Color UI_BORDER = {55, 55, 62, 255};
+static const SDL_Color UI_TEXT = {235, 235, 238, 255};
+static const SDL_Color UI_TEXT_MUTED = {150, 150, 160, 255};
+static const SDL_Color UI_ACCENT = {192, 84, 78, 255};
+static const SDL_Color UI_ACCENT_SOFT = {192, 84, 78, 54};
+
+static void draw_rounded_rect(SDL_Renderer* renderer, SDL_Rect rectangle,
+                              int radius, SDL_Color color) {
+  if (rectangle.w <= 0 || rectangle.h <= 0)
+    return;
+
+  radius = std::min(radius,
+                    std::min(rectangle.w / 2, rectangle.h / 2));
+
+  SDL_BlendMode previous_blend;
+  SDL_GetRenderDrawBlendMode(renderer, &previous_blend);
+  SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+  SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+
+  for (int y = 0; y < rectangle.h; y++) {
+    int inset = 0;
+    if (radius > 0 && (y < radius || y >= rectangle.h - radius)) {
+      const float distance =
+          y < radius
+              ? radius - y - 0.5f
+              : y - (rectangle.h - radius) + 0.5f;
+      inset = radius -
+              (int)std::sqrt(radius * radius - distance * distance);
+    }
+
+    SDL_RenderDrawLine(renderer,
+                       rectangle.x + inset,
+                       rectangle.y + y,
+                       rectangle.x + rectangle.w - inset - 1,
+                       rectangle.y + y);
+  }
+
+  SDL_SetRenderDrawBlendMode(renderer, previous_blend);
+}
+
+static void draw_centered_reader_message(const char* title,
+                                         const char* detail = nullptr) {
+  const int panel_width = 520;
+  const int panel_height = detail ? 142 : 104;
+  const int panel_x = (windowX - panel_width) / 2;
+  const int panel_y = (windowY - panel_height) / 2;
+  SDL_Rect panel = {panel_x, panel_y, panel_width, panel_height};
+  draw_rounded_rect(RENDERER, panel, 18, UI_SURFACE_ELEVATED);
+
+  int title_width = 0;
+  TTF_SizeUTF8(ROBOTO_25, title, &title_width, nullptr);
+  SDL_DrawText(RENDERER, ROBOTO_25,
+               panel_x + (panel_width - title_width) / 2,
+               panel_y + 31, UI_TEXT, title);
+
+  if (detail) {
+    int detail_width = 0;
+    TTF_SizeUTF8(ROBOTO_15, detail, &detail_width, nullptr);
+    SDL_DrawText(RENDERER, ROBOTO_15,
+                 panel_x + (panel_width - detail_width) / 2,
+                 panel_y + 83, UI_TEXT_MUTED, detail);
+  }
+}
 
 static std::string notes_path(const char* book_name) {
   return std::string(NOTES_DIR) + "/" + book_name + ".txt";
@@ -420,11 +488,8 @@ void BookReader::draw(bool drawHelp, bool drawNotes) {
 
   // Check if layout is valid
   if (!layout) {
-    if (ROBOTO_30) {
-      SDL_DrawText(RENDERER, ROBOTO_30, 100, 350,
-                   configDarkMode ? WHITE : BLACK,
-                   "Error: Failed to load page.");
-    }
+    draw_centered_reader_message("Unable to open this page",
+                                 "Return to the library and try again.");
     SDL_RenderPresent(RENDERER);
     return;
   }
@@ -437,20 +502,13 @@ void BookReader::draw(bool drawHelp, bool drawNotes) {
       if (!cbz->is_valid() && cbz->is_first_image_ready())
         cbz->apply_first_image();
       if (cbz->is_valid()) {
-        // First page is displayed — draw it with a "..." indicator.
+        // First page is displayed while the remaining entries are indexed.
         layout->draw_page();
-        if (ROBOTO_25)
-          SDL_DrawText(RENDERER, ROBOTO_25, 1220, 700,
-                       configDarkMode ? WHITE : BLACK, "...");
+        SDL_Rect activity = {windowX - 46, windowY - 20, 28, 3};
+        draw_rounded_rect(RENDERER, activity, 1, UI_ACCENT);
       } else {
-        if (ROBOTO_30) {
-          const char* msg = "Opening archive...";
-          int tw = 0, th = 0;
-          TTF_SizeText(ROBOTO_30, msg, &tw, &th);
-          // Nudge +4px right: TTF_SizeText underestimates vs actual render
-          SDL_DrawText(RENDERER, ROBOTO_30, (1280 - tw) / 2 + 4, (720 - th) / 2,
-                       configDarkMode ? WHITE : BLACK, msg);
-        }
+        draw_centered_reader_message("Opening chapter",
+                                     "Preparing pages for reading...");
       }
       SDL_RenderPresent(RENDERER);
       return;
@@ -460,10 +518,8 @@ void BookReader::draw(bool drawHelp, bool drawNotes) {
       cbz->finish_enumeration();
       if (!cbz->is_valid()) {
         // Archive had no images or couldn't be opened
-        if (ROBOTO_30)
-          SDL_DrawText(RENDERER, ROBOTO_30, 100, 350,
-                       configDarkMode ? WHITE : BLACK,
-                       "Error: No images found in archive.");
+        draw_centered_reader_message("No readable pages found",
+                                     "Check the archive and try again.");
         SDL_RenderPresent(RENDERER);
         return;
       }
@@ -496,8 +552,8 @@ if (_total_pages > 0) {
     const bool rotated = _nav_landscape;
 
     const int margin = 12;
-    const int thickness = 4;
-    const int edge_distance = 7;
+    const int thickness = 3;
+    const int edge_distance = 8;
 
     const int available_length =
         (rotated ? windowY : windowX) -
@@ -558,17 +614,17 @@ if (_total_pages > 0) {
 if (page_completed) {
             SDL_SetRenderDrawColor(
                 RENDERER,
-                180,
-                65,
-                60,
-                255
+                UI_ACCENT.r,
+                UI_ACCENT.g,
+                UI_ACCENT.b,
+                UI_ACCENT.a
             );
         } else {
             SDL_SetRenderDrawColor(
                 RENDERER,
-                45,
-                45,
-                45,
+                49,
+                49,
+                54,
                 255
             );
         }
@@ -580,8 +636,8 @@ if (page_completed) {
     }
 }
  if (drawHelp) {
-    const int menu_width = 310;
-    const int menu_height = 150;
+    const int menu_width = 360;
+    const int menu_height = 194;
 
     const int menu_x =
         (windowX - menu_width) / 2;
@@ -589,113 +645,113 @@ if (page_completed) {
     const int menu_y =
         (windowY - menu_height) / 2;
 
-    SDL_DrawRect(
-        RENDERER,
-        menu_x,
-        menu_y,
-        menu_width,
-        menu_height,
-        SDL_MakeColour(20, 20, 20, 245)
-    );
+    SDL_DrawRect(RENDERER, 0, 0, windowX, windowY,
+                 SDL_MakeColour(0, 0, 0, 112));
+
+    SDL_Rect menu = {menu_x, menu_y, menu_width, menu_height};
+    draw_rounded_rect(RENDERER, menu, 18, UI_SURFACE_ELEVATED);
 
    SDL_DrawText(
     RENDERER,
     ROBOTO_27,
-    menu_x + 18,
-    menu_y + 12,
-    SDL_Color{232, 232, 237, 255},
+    menu_x + 24,
+    menu_y + 22,
+    UI_TEXT,
     "Reading direction"
 );
+
+    SDL_DrawText(RENDERER, ROBOTO_15, menu_x + 25, menu_y + 57,
+                 UI_TEXT_MUTED, "Choose how pages advance");
 
     for (int i = 0; i < 2; i++) {
         const bool selected =
             readingDirectionSelection == i;
 
         const int option_y =
-            menu_y + 56 + i * 38;
+            menu_y + 96 + i * 42;
 
         if (selected) {
-            SDL_DrawRect(
-                RENDERER,
-                menu_x + 10,
-                option_y - 3,
-                menu_width - 20,
-                32,
-                SDL_MakeColour(65, 65, 65, 255)
-            );
+            SDL_Rect selection = {
+                menu_x + 14, option_y - 7, menu_width - 28, 36
+            };
+            draw_rounded_rect(RENDERER, selection, 9, UI_ACCENT_SOFT);
+            SDL_Rect accent = {menu_x + 19, option_y - 2, 3, 26};
+            draw_rounded_rect(RENDERER, accent, 1, UI_ACCENT);
         }
 
        SDL_DrawText(
     RENDERER,
-    selected ? ROBOTO_25 : ROBOTO_20,
-    menu_x + 22,
+    ROBOTO_20,
+    menu_x + 30,
     option_y,
     selected
-        ? SDL_MakeColour(232, 232, 237, 255)
-        : SDL_MakeColour(150, 150, 160, 255),
+        ? UI_TEXT
+        : UI_TEXT_MUTED,
     i == 0
         ? "Western"
         : "Eastern"
 );
-    }
+  }
 }
   if (drawNotes) {
-    int noteWidth = 800;
-    int noteHeight = 500;
+    const int noteWidth = 760;
+    const int noteHeight = 448;
+    const int noteX = (windowX - noteWidth) / 2;
+    const int noteY = (windowY - noteHeight) / 2;
 
-    if (!configDarkMode) {
-      SDL_DrawRect(RENDERER, 0, 0, 1280, 720, SDL_MakeColour(50, 50, 50, 150));
-    }
+    SDL_DrawRect(RENDERER, 0, 0, windowX, windowY,
+                 SDL_MakeColour(0, 0, 0, 175));
 
-    SDL_DrawRect(RENDERER, (windowX - noteWidth) / 2,
-                 (windowY - noteHeight) / 2, noteWidth, noteHeight,
-                 configDarkMode ? HINT_COLOUR_DARK : HINT_COLOUR_LIGHT);
+    SDL_Rect notePanel = {noteX, noteY, noteWidth, noteHeight};
+    draw_rounded_rect(RENDERER, notePanel, 20, UI_SURFACE_ELEVATED);
 
-    int nTextX = (windowX - noteWidth) / 2 + 20;
-    int nTextY = (windowY - noteHeight) / 2 + 10;
-    SDL_Color noteColor = configDarkMode ? WHITE : BLACK;
+    SDL_DrawText(RENDERER, ROBOTO_30, noteX + 32, noteY + 25,
+                 UI_TEXT, "Chapter notes");
+    SDL_DrawText(RENDERER, ROBOTO_15, noteX + 33, noteY + 68,
+                 UI_TEXT_MUTED, "Keep thoughts and references with this chapter");
 
-    SDL_DrawText(RENDERER, ROBOTO_30, nTextX, nTextY, noteColor, "Notes:");
+    SDL_SetRenderDrawColor(RENDERER, UI_BORDER.r, UI_BORDER.g,
+                           UI_BORDER.b, UI_BORDER.a);
+    SDL_RenderDrawLine(RENDERER, noteX + 32, noteY + 108,
+                       noteX + noteWidth - 32, noteY + 108);
 
-    // Hint line at the bottom
-    int hintY = (windowY + noteHeight) / 2 - 35;
-    if (ROBOTO_15) {
-      SDL_DrawText(RENDERER, ROBOTO_15, nTextX, hintY, noteColor,
-                   "A = Edit    B = Close");
-    }
+    const int hintY = noteY + noteHeight - 40;
+    SDL_DrawText(RENDERER, ROBOTO_15, noteX + 34, hintY,
+                 UI_TEXT_MUTED, "A  Edit note       B  Close");
 
-    // Note body
-    int bodyY = nTextY + 45;
-    int bodyMaxH = hintY - bodyY - 10;
+    const int bodyY = noteY + 134;
+    const int bodyMaxH = hintY - bodyY - 18;
     if (_notes.empty()) {
-      if (ROBOTO_25)
-        SDL_DrawText(RENDERER, ROBOTO_25, nTextX, bodyY,
-                     DARK_GRAY, "No notes yet. Press A to add one.");
-    } else if (ROBOTO_20) {
-      SDL_DrawTextWrapped(RENDERER, ROBOTO_20, nTextX, bodyY,
-                          noteWidth - 40, bodyMaxH, noteColor, _notes.c_str());
+      SDL_DrawText(RENDERER, ROBOTO_20, noteX + 34, bodyY,
+                   UI_TEXT_MUTED, "No notes yet.");
+      SDL_DrawText(RENDERER, ROBOTO_15, noteX + 35, bodyY + 35,
+                   UI_TEXT_MUTED, "Press A to write something about this chapter.");
+    } else {
+      SDL_DrawTextWrapped(RENDERER, ROBOTO_20, noteX + 34, bodyY,
+                          noteWidth - 68, bodyMaxH, UI_TEXT, _notes.c_str());
     }
   }
 
   if (configStatusBar && (permStatusBar || --status_bar_visible_counter > 0)) {
     char* title = layout->info();
 
-    if (title && ROBOTO_15 && ROBOTO_25) {
+    if (title && ROBOTO_15) {
       int title_width = 0, title_height = 0;
-      TTF_SizeText(ROBOTO_15, title, &title_width, &title_height);
+      TTF_SizeUTF8(ROBOTO_15, title, &title_width, &title_height);
 
-      if (_currentPageLayout == BookPageLayoutPortrait ||
-          _currentPageLayout == BookPageLayoutVertical) {
-        SDL_DrawRect(RENDERER, 0, 0, 1280, 45, SDL_MakeColour(0, 0, 0, 180));
-        SDL_DrawText(RENDERER, ROBOTO_25, (1280 - title_width) / 2,
-                     (40 - title_height) / 2, WHITE, title);
+      if (!_nav_landscape) {
+        SDL_DrawRect(RENDERER, 0, 0, windowX, 40,
+                     SDL_MakeColour(14, 14, 16, 205));
+        SDL_DrawText(RENDERER, ROBOTO_15, (windowX - title_width) / 2,
+                     (40 - title_height) / 2, UI_TEXT, title);
 
         StatusBar_DisplayTime(false);
-      } else if (_currentPageLayout == BookPageLayoutLandscape) {
-        SDL_DrawRect(RENDERER, 1280 - 45, 0, 45, 720, SDL_MakeColour(0, 0, 0, 180));
-        int x = (1280 - title_width) - ((40 - title_height) / 2);
-        int y = (720 - title_height) / 2;
-        SDL_DrawRotatedText(RENDERER, ROBOTO_25, (double)90, x, y, WHITE,
+      } else {
+        SDL_DrawRect(RENDERER, windowX - 40, 0, 40, windowY,
+                     SDL_MakeColour(14, 14, 16, 205));
+        int x = (windowX - title_width) - ((40 - title_height) / 2);
+        int y = (windowY - title_height) / 2;
+        SDL_DrawRotatedText(RENDERER, ROBOTO_15, 90.0, x, y, UI_TEXT,
                             title);
 
         StatusBar_DisplayTime(true);
@@ -726,12 +782,11 @@ if (page_completed) {
         _nav_tex_init  = true;
       }
 
-      const int BW = 80, BH = 80;
+      const int BW = 68, BH = 68;
       auto draw_btn = [&](int bx, int by, SDL_Texture* glyph, double angle = 0.0) {
-        SDL_SetRenderDrawBlendMode(RENDERER, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(RENDERER, 0, 0, 0, (Uint8)alpha);
         SDL_Rect bg = {bx, by, BW, BH};
-        SDL_RenderFillRect(RENDERER, &bg);
+        draw_rounded_rect(RENDERER, bg, 16,
+                          SDL_Color{18, 18, 21, (Uint8)alpha});
         if (glyph) {
           SDL_SetTextureAlphaMod(glyph, (Uint8)alpha);
           SDL_SetTextureBlendMode(glyph, SDL_BLENDMODE_BLEND);
@@ -744,88 +799,69 @@ if (page_completed) {
       };
 
       if (!_nav_landscape) {
-        draw_btn(20,             (720 - BH) / 2, _nav_tex_left);
-        draw_btn(1280 - 20 - BW, (720 - BH) / 2, _nav_tex_right);
+        draw_btn(18,                    (windowY - BH) / 2, _nav_tex_left);
+        draw_btn(windowX - 18 - BW,     (windowY - BH) / 2, _nav_tex_right);
       } else {
         // Rotate ‹/› 90° so they point up/down — avoids font missing ↑/↓ glyphs
-        draw_btn((1280 - BW) / 2, 20,        _nav_tex_left,  90.0);
-        draw_btn((1280 - BW) / 2, 720-20-BH, _nav_tex_right, 90.0);
+        draw_btn((windowX - BW) / 2, 18,                 _nav_tex_left,  90.0);
+        draw_btn((windowX - BW) / 2, windowY - 18 - BH, _nav_tex_right, 90.0);
       }
     }
   }
-if (!_chapter_notice.empty() &&
-    SDL_GetTicks() < _chapter_notice_until) {
-  SDL_Surface* notice_surface =
-      TTF_RenderUTF8_Blended(
-    ROBOTO_27,
-    _chapter_notice.c_str(),
-    SDL_Color{232, 232, 237, 255}
-);
+  if (!_chapter_notice.empty() &&
+      SDL_GetTicks() < _chapter_notice_until) {
+    SDL_Surface* notice_surface = TTF_RenderUTF8_Blended(
+        ROBOTO_20, _chapter_notice.c_str(), UI_TEXT);
 
-  if (notice_surface) {
-    int text_width = notice_surface->w;
-    int text_height = notice_surface->h;
+    if (notice_surface) {
+      const int text_width = notice_surface->w;
+      const int text_height = notice_surface->h;
+      SDL_Texture* notice_texture =
+          SDL_CreateTextureFromSurface(RENDERER, notice_surface);
+      SDL_FreeSurface(notice_surface);
 
-    SDL_Texture* notice_texture =
-        SDL_CreateTextureFromSurface(RENDERER, notice_surface);
+      if (notice_texture) {
+        const bool rotated = _nav_landscape;
+        const int notice_width =
+            rotated ? text_height + 36 : text_width + 52;
+        const int notice_height =
+            rotated ? text_width + 52 : text_height + 30;
+        const int notice_x =
+            rotated ? windowX - notice_width - 20
+                    : (windowX - notice_width) / 2;
+        const int notice_y =
+            rotated ? (windowY - notice_height) / 2 : 24;
 
-    SDL_FreeSurface(notice_surface);
+        SDL_Rect notice_rect = {
+            notice_x, notice_y, notice_width, notice_height};
+        draw_rounded_rect(RENDERER, notice_rect, 12,
+                          SDL_Color{23, 23, 26, 232});
 
-    if (notice_texture) {
-      bool rotated = _nav_landscape;
+        SDL_SetRenderDrawBlendMode(RENDERER, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(RENDERER, UI_ACCENT.r, UI_ACCENT.g,
+                               UI_ACCENT.b, UI_ACCENT.a);
+        if (!rotated) {
+          SDL_Rect accent = {notice_x + 12, notice_y + 9,
+                             3, notice_height - 18};
+          SDL_RenderFillRect(RENDERER, &accent);
+        } else {
+          SDL_Rect accent = {notice_x + 9, notice_y + 12,
+                             notice_width - 18, 3};
+          SDL_RenderFillRect(RENDERER, &accent);
+        }
 
-      int notice_width =
-          rotated ? text_height + 24 : text_width + 60;
-
-      int notice_height =
-          rotated ? text_width + 60 : text_height + 24;
-
-      int notice_x =
-          rotated
-              ? windowX - notice_width - 24
-              : (windowX - notice_width) / 2;
-
-      int notice_y =
-          rotated
-              ? (windowY - notice_height) / 2
-              : 24;
-
-      SDL_SetRenderDrawBlendMode(RENDERER, SDL_BLENDMODE_BLEND);
-      SDL_SetRenderDrawColor(RENDERER, 0, 0, 0, 200);
-
-      SDL_Rect notice_rect = {
-          notice_x,
-          notice_y,
-          notice_width,
-          notice_height
-      };
-
-      SDL_RenderFillRect(RENDERER, &notice_rect);
-
-      SDL_SetRenderDrawColor(RENDERER, 255, 255, 255, 90);
-      SDL_RenderDrawRect(RENDERER, &notice_rect);
-
-      SDL_Rect text_rect = {
-          notice_x + (notice_width - text_width) / 2,
-          notice_y + (notice_height - text_height) / 2,
-          text_width,
-          text_height
-      };
-
-      SDL_RenderCopyEx(RENDERER,
-                       notice_texture,
-                       nullptr,
-                       &text_rect,
-                       rotated ? 90.0 : 0.0,
-                       nullptr,
-                       SDL_FLIP_NONE);
-
-      SDL_DestroyTexture(notice_texture);
-
-      SDL_SetRenderDrawBlendMode(RENDERER, SDL_BLENDMODE_NONE);
+        SDL_Rect text_rect = {
+            notice_x + (notice_width - text_width) / 2,
+            notice_y + (notice_height - text_height) / 2,
+            text_width,
+            text_height};
+        SDL_RenderCopyEx(RENDERER, notice_texture, nullptr, &text_rect,
+                         rotated ? 90.0 : 0.0, nullptr, SDL_FLIP_NONE);
+        SDL_DestroyTexture(notice_texture);
+        SDL_SetRenderDrawBlendMode(RENDERER, SDL_BLENDMODE_NONE);
+      }
     }
   }
-}
   SDL_RenderPresent(RENDERER);
 }
 
