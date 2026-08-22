@@ -102,6 +102,8 @@ static void terminate_handler() {
 
 fz_context* ctx = NULL;
 bool timeInitialized = false;
+bool psmInitialized = false;
+bool nifmInitialized = false;
 
 SDL_Renderer* RENDERER;
 SDL_Window* WINDOW;
@@ -114,6 +116,15 @@ bool configMangaMode = false;
 
 void Term_Services() {
   Log_Write("Terminate Services");
+  if (nifmInitialized) {
+    nifmExit();
+    nifmInitialized = false;
+}
+
+if (psmInitialized) {
+    psmExit();
+    psmInitialized = false;
+}
 
   if (timeInitialized) {
     timeExit();
@@ -184,6 +195,15 @@ bool Init_Services() {
   timeInitialize();
   timeInitialized = true;
   Log_Write("Initialized Time");
+  if (R_SUCCEEDED(psmInitialize())) {
+    psmInitialized = true;
+    Log_Write("Initialized battery service");
+}
+
+if (R_SUCCEEDED(nifmInitialize(NifmServiceType_User))) {
+    nifmInitialized = true;
+    Log_Write("Initialized network service");
+}
 
   if (SDL_CreateWindowAndRenderer(1280, 720, 0, &WINDOW, &RENDERER) == -1) {
     Log_Error(std::string("SDL_CreateWindowAndRenderer failed: ") +
