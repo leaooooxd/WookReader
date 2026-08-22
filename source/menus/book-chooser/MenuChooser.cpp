@@ -21,6 +21,7 @@ extern "C" {
 
 #include <filesystem>
 #include <iostream>
+#include <ctime>
 
 using namespace std;
 namespace fs = filesystem;
@@ -30,7 +31,237 @@ extern void Log_Error(const std::string& msg);
 extern fz_context *ctx;
 extern config_t*   config;
 extern const char* configFile;
+extern bool psmInitialized;
+extern bool nifmInitialized;
+static void draw_system_status(int window_width) {
+    static Uint32 last_update = 0;
+    static bool initialized = false;
 
+    static u32 battery_percentage = 0;
+    static bool battery_available = false;
+
+    static u32 wifi_strength = 0;
+    static bool wifi_connected = false;
+
+    Uint32 now_ticks = SDL_GetTicks();
+
+    if (!initialized || now_ticks - last_update >= 5000) {
+        initialized = true;
+        last_update = now_ticks;
+
+        battery_available = false;
+
+        if (psmInitialized) {
+            battery_available =
+                R_SUCCEEDED(
+                    psmGetBatteryChargePercentage(
+                        &battery_percentage
+                    )
+                );
+        }
+
+        wifi_strength = 0;
+        wifi_connected = false;
+
+        if (nifmInitialized) {
+            NifmInternetConnectionType connection_type =
+                NifmInternetConnectionType_WiFi;
+
+            NifmInternetConnectionStatus connection_status =
+                NifmInternetConnectionStatus_ConnectingUnknown1;
+
+            if (
+                R_SUCCEEDED(
+                    nifmGetInternetConnectionStatus(
+                        &connection_type,
+                        &wifi_strength,
+                        &connection_status
+                    )
+                )
+            ) {
+                wifi_connected =
+                    connection_status ==
+                    NifmInternetConnectionStatus_Connected;
+            }
+        }
+    }
+
+    time_t current_time = time(nullptr);
+
+    struct tm local_time;
+    localtime_r(&current_time, &local_time);
+
+    char time_text[16];
+
+    strftime(
+        time_text,
+        sizeof(time_text),
+        "%H:%M",
+        &local_time
+    );
+
+    char battery_text[16];
+
+    if (battery_available) {
+        snprintf(
+            battery_text,
+            sizeof(battery_text),
+            "%u%%",
+            battery_percentage
+        );
+    } else {
+        snprintf(
+            battery_text,
+            sizeof(battery_text),
+            "--%%"
+        );
+    }
+
+    SDL_Color status_color = {
+        190,
+        190,
+        195,
+        255
+    };
+
+    const int top_y = 24;
+
+    const int battery_x =
+        window_width - 54;
+
+    const int battery_y =
+        top_y + 3;
+
+    SDL_SetRenderDrawColor(
+        RENDERER,
+        status_color.r,
+        status_color.g,
+        status_color.b,
+        status_color.a
+    );
+
+    SDL_Rect battery_outline = {
+        battery_x,
+        battery_y,
+        24,
+        12
+    };
+
+    SDL_RenderDrawRect(
+        RENDERER,
+        &battery_outline
+    );
+
+    SDL_Rect battery_tip = {
+        battery_x + 25,
+        battery_y + 4,
+        2,
+        4
+    };
+
+    SDL_RenderFillRect(
+        RENDERER,
+        &battery_tip
+    );
+
+    if (battery_available) {
+        int fill_width =
+            (20 * min(battery_percentage, 100u)) / 100;
+
+        SDL_Rect battery_fill = {
+            battery_x + 2,
+            battery_y + 2,
+            fill_width,
+            8
+        };
+
+        if (battery_percentage <= 20) {
+            SDL_SetRenderDrawColor(
+                RENDERER,
+                192,
+                84,
+                78,
+                255
+            );
+        }
+
+        SDL_RenderFillRect(
+            RENDERER,
+            &battery_fill
+        );
+    }
+
+    int battery_text_width = 0;
+
+    TTF_SizeUTF8(
+        ROBOTO_15,
+        battery_text,
+        &battery_text_width,
+        nullptr
+    );
+
+    const int battery_text_x =
+        battery_x - battery_text_width - 10;
+
+    SDL_DrawText(
+        RENDERER,
+        ROBOTO_15,
+        battery_text_x,
+        top_y,
+        status_color,
+        battery_text
+    );
+
+    const int wifi_x =
+        battery_text_x - 29;
+
+    for (int i = 0; i < 3; i++) {
+        const int bar_height =
+            4 + i * 4;
+
+        const bool active =
+            wifi_connected &&
+            wifi_strength > (u32)i;
+
+        SDL_SetRenderDrawColor(
+            RENDERER,
+            active ? 190 : 72,
+            active ? 190 : 72,
+            active ? 195 : 76,
+            255
+        );
+
+        SDL_Rect signal_bar = {
+            wifi_x + i * 6,
+            top_y + 15 - bar_height,
+            4,
+            bar_height
+        };
+
+        SDL_RenderFillRect(
+            RENDERER,
+            &signal_bar
+        );
+    }
+
+    int time_width = 0;
+
+    TTF_SizeUTF8(
+        ROBOTO_15,
+        time_text,
+        &time_width,
+        nullptr
+    );
+
+    SDL_DrawText(
+        RENDERER,
+        ROBOTO_15,
+        wifi_x - time_width - 16,
+        top_y,
+        status_color,
+        time_text
+    );
+}
 // ── Per-comic notes helpers ───────────────────────────────────────────────────
 static const char* CHOOSER_NOTES_DIR = "/switch/WookReader/.notes";
 
@@ -177,7 +408,128 @@ const char* optionFile = "/switch/WookReader/options.cfg";
 // ── Grid layout ──────────────────────────────────────────────────────────────
 // COLS/CELL_W/CELL_H/THUMB_W/THUMB_H are dynamic (ZL/ZR zoom) — local vars in Menu_StartChoosing
 static const int FOLDER_H = 40;   // folder row height (fixed)
-static const int BOTTOM_H = 70;   // bottom bar height (fixed)
+static const int BOTTOM_H = 70; 
+static const SDL_Color UI_BACKGROUND = {
+    14, 14, 16, 255
+};
+
+static const SDL_Color UI_SURFACE = {
+    23, 23, 26, 255
+};
+
+static const SDL_Color UI_SURFACE_ELEVATED = {
+    30, 30, 34, 255
+};
+
+static const SDL_Color UI_BORDER = {
+    48, 48, 54, 255
+};
+
+static const SDL_Color UI_TEXT = {
+    235, 235, 238, 255
+};
+
+static const SDL_Color UI_TEXT_MUTED = {
+    146, 146, 155, 255
+};
+
+static const SDL_Color UI_ACCENT = {
+    192, 84, 78, 255
+};
+
+static const SDL_Color UI_SELECTION = {
+    192, 84, 78, 42
+};
+static void draw_rounded_rect(
+    SDL_Renderer* renderer,
+    SDL_Rect rectangle,
+    int radius,
+    SDL_Color color
+) {
+    if (
+        rectangle.w <= 0 ||
+        rectangle.h <= 0
+    ) {
+        return;
+    }
+
+    radius = min(
+        radius,
+        min(
+            rectangle.w / 2,
+            rectangle.h / 2
+        )
+    );
+
+    SDL_BlendMode previous_blend;
+
+    SDL_GetRenderDrawBlendMode(
+        renderer,
+        &previous_blend
+    );
+
+    SDL_SetRenderDrawBlendMode(
+        renderer,
+        SDL_BLENDMODE_BLEND
+    );
+
+    SDL_SetRenderDrawColor(
+        renderer,
+        color.r,
+        color.g,
+        color.b,
+        color.a
+    );
+
+    for (
+        int y = 0;
+        y < rectangle.h;
+        y++
+    ) {
+        int inset = 0;
+
+        if (radius > 0) {
+            if (y < radius) {
+                float distance =
+                    radius - y - 0.5f;
+
+                inset =
+                    radius -
+                    (int)sqrt(
+                        radius * radius -
+                        distance * distance
+                    );
+            } else if (
+                y >= rectangle.h - radius
+            ) {
+                float distance =
+                    y -
+                    (rectangle.h - radius) +
+                    0.5f;
+
+                inset =
+                    radius -
+                    (int)sqrt(
+                        radius * radius -
+                        distance * distance
+                    );
+            }
+        }
+
+        SDL_RenderDrawLine(
+            renderer,
+            rectangle.x + inset,
+            rectangle.y + y,
+            rectangle.x + rectangle.w - inset - 1,
+            rectangle.y + y
+        );
+    }
+
+    SDL_SetRenderDrawBlendMode(
+        renderer,
+        previous_blend
+    );
+}// bottom bar height (fixed)
 
 // ── LRU texture cache ─────────────────────────────────────────────────────────
 // Key = "abs_path|cols" — covers are loaded at the right size per zoom level
@@ -570,6 +922,213 @@ static SDL_Texture* load_series_cover(const fs::path& folder_path) {
 
         return nullptr;
     }
+  static string load_series_author(
+    const fs::path& folder_path
+) {
+    fs::path metadata_path =
+        folder_path / "series.cfg";
+
+    std::error_code error;
+
+    if (
+        !fs::exists(metadata_path, error) ||
+        error
+    ) {
+        return "";
+    }
+    static void draw_rounded_cover(
+    SDL_Texture* texture,
+    const SDL_Rect* source,
+    SDL_Rect destination,
+    int radius,
+    SDL_Color background
+) {
+    if (
+        !texture ||
+        destination.w <= 0 ||
+        destination.h <= 0
+    ) {
+        return;
+    }
+
+  draw_rounded_cover(
+    cover,
+    &source,
+    destination,
+    14,
+    UI_BACKGROUND
+);
+    );
+      static void draw_navigation_header(
+    const string& current_path
+) {
+    const bool is_home =
+        current_path ==
+        "/switch/WookReader";
+
+    const bool is_library =
+        current_path ==
+        "/switch/WookReader/books";
+
+    if (
+        !is_home &&
+        !is_library
+    ) {
+        return;
+    }
+
+    SDL_DrawText(
+        RENDERER,
+        ROBOTO_15,
+        64,
+        30,
+        UI_TEXT_MUTED,
+        "NEETREADER"
+    );
+
+    SDL_DrawText(
+        RENDERER,
+        ROBOTO_30,
+        64,
+        62,
+        UI_TEXT,
+        is_home
+            ? "Pick up where you left off or explore your library"
+            : "Your library"
+    );
+
+    if (is_library) {
+        SDL_DrawText(
+            RENDERER,
+            ROBOTO_15,
+            64,
+            101,
+            UI_TEXT_MUTED,
+            "Select a series to start reading"
+        );
+    }
+}
+
+    radius = min(
+        radius,
+        min(
+            destination.w / 2,
+            destination.h / 2
+        )
+    );
+
+    SDL_SetRenderDrawColor(
+        RENDERER,
+        background.r,
+        background.g,
+        background.b,
+        background.a
+    );
+
+    for (
+        int row = 0;
+        row < radius;
+        row++
+    ) {
+        float distance =
+            radius - row - 0.5f;
+
+        int inset =
+            radius -
+            (int)sqrt(
+                radius * radius -
+                distance * distance
+            );
+
+        if (inset <= 0) {
+            continue;
+        }
+
+        int top_y =
+            destination.y + row;
+
+        int bottom_y =
+            destination.y +
+            destination.h -
+            row -
+            1;
+
+        SDL_RenderDrawLine(
+            RENDERER,
+            destination.x,
+            top_y,
+            destination.x + inset - 1,
+            top_y
+        );
+
+        SDL_RenderDrawLine(
+            RENDERER,
+            destination.x +
+                destination.w -
+                inset,
+            top_y,
+            destination.x +
+                destination.w -
+                1,
+            top_y
+        );
+
+        SDL_RenderDrawLine(
+            RENDERER,
+            destination.x,
+            bottom_y,
+            destination.x + inset - 1,
+            bottom_y
+        );
+
+        SDL_RenderDrawLine(
+            RENDERER,
+            destination.x +
+                destination.w -
+                inset,
+            bottom_y,
+            destination.x +
+                destination.w -
+                1,
+            bottom_y
+        );
+    }
+}
+
+    config_t metadata;
+
+    config_init(&metadata);
+
+    if (
+        !config_read_file(
+            &metadata,
+            metadata_path.string().c_str()
+        )
+    ) {
+        config_destroy(&metadata);
+
+        return "";
+    }
+
+    const char* author = nullptr;
+
+    string result;
+
+    if (
+        config_lookup_string(
+            &metadata,
+            "author",
+            &author
+        ) &&
+        author
+    ) {
+        result = author;
+    }
+
+    config_destroy(&metadata);
+
+    return result;
+}
 
     SDL_Texture* texture =
         IMG_LoadTexture(
@@ -1762,13 +2321,20 @@ for (int i = 0; i < numFolders; i++) {
   while (appletMainLoop()) {
     SDL_TextCache_NextFrame();
     SDL_PumpEvents();  // drain SDL's internal event queue to prevent HID interference
-    SDL_Color textColor = configDarkMode
-    ? SDL_Color{232, 232, 237, 255}
-    : SDL_Color{34, 34, 38, 255};
-    SDL_Color backColor    = configDarkMode ? BACK_BLACK : BACK_WHITE;
-    SDL_Color selectorColor = configDarkMode ? SELECTOR_COLOUR_DARK
-                                             : SELECTOR_COLOUR_LIGHT;
+    SDL_Color textColor =
+    configDarkMode
+        ? UI_TEXT
+        : SDL_Color{34, 34, 38, 255};
 
+SDL_Color backColor =
+    configDarkMode
+        ? UI_BACKGROUND
+        : BACK_WHITE;
+
+SDL_Color selectorColor =
+    configDarkMode
+        ? UI_SELECTION
+        : SELECTOR_COLOUR_LIGHT;
     SDL_ClearScreen(RENDERER, backColor);
     SDL_RenderClear(RENDERER);
 
@@ -2567,12 +3133,22 @@ draw_dashboard_text(progress_text, 16, 44);
 
   string series_name =
     sorted_entries[i].filename().string();
+        string series_author;
+
+if (
+    path == "/switch/WookReader/books"
+) {
+    series_author =
+        load_series_author(
+            sorted_entries[i]
+        );
+}
 
 if (path == "/switch/WookReader") {
     if (sorted_entries[i].string() == RECENT_SENTINEL)
-        series_name = "Ultimo lido";
+       series_name = "Continue reading";
     else if (series_name == "books")
-        series_name = "Books/Mangas";
+        series_name = "Library";
 }
 
   int label_width = 0;
@@ -2608,12 +3184,44 @@ series_name.resize(last);
     }
   }
 
-  SDL_DrawText(RENDERER,
-               ROBOTO_20,
-               card_x + (folder_card_width - label_width) / 2,
-               card_y + image_height + 10,
-               textColor,
-               series_name.c_str());
+  SDL_DrawText(
+    RENDERER,
+    ROBOTO_20,
+    card_x +
+        (folder_card_width - label_width) / 2,
+    card_y +
+        image_height +
+        (
+            series_author.empty()
+                ? 10
+                : 3
+        ),
+    UI_TEXT,
+    series_name.c_str()
+);
+
+if (!series_author.empty()) {
+    int author_width = 0;
+
+    TTF_SizeUTF8(
+        ROBOTO_15,
+        series_author.c_str(),
+        &author_width,
+        nullptr
+    );
+
+    SDL_DrawText(
+        RENDERER,
+        ROBOTO_15,
+        card_x +
+            (folder_card_width - author_width) / 2,
+        card_y +
+            image_height +
+            26,
+        UI_TEXT_MUTED,
+        series_author.c_str()
+    );
+}
 
   if (chosen_index == i) {
     SDL_SetRenderDrawColor(RENDERER,
@@ -2795,7 +3403,11 @@ series_name.resize(last);
                    textColor, empty_msg);
     }
 
-    SDL_RenderSetClipRect(RENDERER, nullptr);  // clear clip
+   SDL_RenderSetClipRect(RENDERER, nullptr);
+draw_navigation_header(path);
+   draw_system_status(windowX);
+
+   SDL_RenderPresent(RENDERER);  // clear clip
 
     // ── Modal overlays ────────────────────────────────────────────────────────
 
