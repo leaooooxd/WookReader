@@ -216,12 +216,12 @@ bool Init_Services() {
   Textures_Load();
   Log_Write("Loaded Textures");
 
-  ROBOTO_35 = TTF_OpenFont("romfs:/resources/font/Roboto-Light.ttf", 35);
-  ROBOTO_30 = TTF_OpenFont("romfs:/resources/font/Roboto-Light.ttf", 30);
-  ROBOTO_27 = TTF_OpenFont("romfs:/resources/font/Roboto-Light.ttf", 27);
-  ROBOTO_25 = TTF_OpenFont("romfs:/resources/font/Roboto-Light.ttf", 25);
-  ROBOTO_20 = TTF_OpenFont("romfs:/resources/font/Roboto-Light.ttf", 20);
-  ROBOTO_15 = TTF_OpenFont("romfs:/resources/font/Roboto-Light.ttf", 15);
+ROBOTO_35 = TTF_OpenFont("romfs:/resources/font/Geist-Medium.otf", 32);
+ROBOTO_30 = TTF_OpenFont("romfs:/resources/font/Geist-Medium.otf", 28);
+ROBOTO_27 = TTF_OpenFont("romfs:/resources/font/Geist-Medium.otf", 25);
+ROBOTO_25 = TTF_OpenFont("romfs:/resources/font/Geist-Regular.otf", 23);
+ROBOTO_20 = TTF_OpenFont("romfs:/resources/font/Geist-Regular.otf", 19);
+ROBOTO_15 = TTF_OpenFont("romfs:/resources/font/Geist-Regular.otf", 15);
   if (!ROBOTO_35 || !ROBOTO_30 || !ROBOTO_27 || !ROBOTO_25 || !ROBOTO_20 ||
       !ROBOTO_15) {
     Log_Error("Failed to load fonts");
